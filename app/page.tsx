@@ -85,9 +85,21 @@ export default function Home() {
           currentPlayer: prev.questionOrder[nextQuestionIndex]
         };
       } else {
-        // All players have asked, start voting
-        return { ...prev, phase: 'voting' };
+        // All players have asked, but don't start voting yet - wait for timer or agreement
+        return { 
+          ...prev, 
+          currentQuestionIndex: 0,
+          currentPlayer: prev.questionOrder[0]
+        };
       }
+    });
+  };
+
+  const skipToVoting = () => {
+    setGameState(prev => {
+      if (!prev) return prev;
+      stopTimer();
+      return { ...prev, phase: 'voting', timeRemaining: 0 };
     });
   };
 
@@ -156,6 +168,13 @@ export default function Home() {
         // All players have voted, show results
         return { ...prev, phase: 'results' };
       }
+    });
+  };
+
+  const finishVoting = () => {
+    setGameState(prev => {
+      if (!prev) return prev;
+      return { ...prev, phase: 'results' };
     });
   };
 
@@ -323,12 +342,14 @@ export default function Home() {
 
             // Phase 3: Questions phase (no word/spy shown)
             if (gameState.phase === 'questions') {
+              const allPlayersAsked = gameState.currentQuestionIndex >= gameState.questionOrder.length - 1;
+              
               return (
                 <div className="min-h-screen bg-gray-50 p-6">
                   <div className="max-w-md mx-auto">
                     <div className="text-center mb-8">
                       <h1 className="text-xl font-bold text-gray-900">
-                        اللاعب {gameState.currentPlayer + 1}
+                        {allPlayersAsked ? 'انتهت الأسئلة' : `اللاعب ${gameState.currentPlayer + 1}`}
                       </h1>
                       <div className="text-4xl font-bold text-red-600 mb-2">
                         {formatTime(gameState.timeRemaining)}
@@ -340,32 +361,63 @@ export default function Home() {
 
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 min-h-[200px] flex items-center justify-center mb-8">
                       <div className="text-center">
-                        <div className="text-6xl mb-4">❓</div>
-                        <h2 className="text-2xl font-bold text-gray-700 mb-4">
-                          دورك تسأل
-                        </h2>
-                        <p className="text-gray-600">
-                          اسأل سؤال على الكلمة
-                        </p>
-                        <p className="text-sm text-gray-500 mt-2">
-                          الجاسوس (اللاعب {gameState.spyIndex + 1}) ما يعرفش الكلمة و لازم يعرفها!
-                        </p>
+                        {allPlayersAsked ? (
+                          <>
+                            <div className="text-6xl mb-4">⏰</div>
+                            <h2 className="text-2xl font-bold text-gray-700 mb-4">
+                              كل اللاعبين سألوا
+                            </h2>
+                            <p className="text-gray-600 mb-4">
+                              انتظروا انتهاء الوقت أو اتفقوا على التصويت
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              الجاسوس (اللاعب {gameState.spyIndex + 1}) ما يعرفش الكلمة و لازم يعرفها!
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-6xl mb-4">❓</div>
+                            <h2 className="text-2xl font-bold text-gray-700 mb-4">
+                              دورك تسأل
+                            </h2>
+                            <p className="text-gray-600">
+                              اسأل سؤال على الكلمة
+                            </p>
+                            <p className="text-sm text-gray-500 mt-2">
+                              الجاسوس (اللاعب {gameState.spyIndex + 1}) ما يعرفش الكلمة و لازم يعرفها!
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
 
-                    <button
-                      onClick={nextQuestion}
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
-                    >
-                      السؤال الجاي
-                    </button>
+                    {!allPlayersAsked ? (
+                      <button
+                        onClick={nextQuestion}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
+                      >
+                        السؤال الجاي
+                      </button>
+                    ) : (
+                      <div className="space-y-3">
+                        <button
+                          onClick={skipToVoting}
+                          className="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
+                        >
+                          اتفقنا - نبدأ التصويت
+                        </button>
+                        <p className="text-center text-sm text-gray-500">
+                          أو انتظروا انتهاء الوقت ({formatTime(gameState.timeRemaining)})
+                        </p>
+                      </div>
+                    )}
 
                     <div className="mt-6 flex justify-center space-x-2">
                       {Array.from({ length: gameState.players }, (_, i) => (
                         <div
                           key={i}
                           className={`w-3 h-3 rounded-full ${
-                            i === gameState.currentPlayer
+                            i === gameState.currentPlayer && !allPlayersAsked
                               ? 'bg-blue-500'
                               : gameState.questionOrder.slice(0, gameState.currentQuestionIndex + 1).includes(i)
                               ? 'bg-green-500'
@@ -381,6 +433,11 @@ export default function Home() {
 
             // Phase 4: Voting phase
             if (gameState.phase === 'voting') {
+              const hasVoted = gameState.votes[gameState.currentPlayer] !== undefined;
+              const allPlayersVoted = gameState.questionOrder.every(playerIndex => 
+                gameState.votes[playerIndex] !== undefined
+              );
+              
               return (
                 <div className="min-h-screen bg-gray-50 p-6">
                   <div className="max-w-md mx-auto">
@@ -391,6 +448,9 @@ export default function Home() {
                       <p className="text-gray-600">
                         اللاعب {gameState.currentPlayer + 1} يصوت
                       </p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        {Object.keys(gameState.votes).length} من {gameState.players} صوتوا
+                      </p>
                     </div>
 
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-8">
@@ -398,25 +458,60 @@ export default function Home() {
                         من تعتقد أنه الجاسوس؟
                       </h2>
                       
-                      <div className="grid grid-cols-2 gap-3">
-                        {Array.from({ length: gameState.players }, (_, i) => (
-                          <button
-                            key={i}
-                            onClick={() => voteForPlayer(i)}
-                            className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-3 px-4 rounded-lg transition-colors duration-200"
-                          >
-                            اللاعب {i + 1}
-                          </button>
-                        ))}
-                      </div>
+                      {hasVoted ? (
+                        <div className="text-center">
+                          <div className="text-4xl mb-4">✅</div>
+                          <p className="text-gray-600 mb-4">
+                            صوتت للاعب {gameState.votes[gameState.currentPlayer] + 1}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          {Array.from({ length: gameState.players }, (_, i) => (
+                            <button
+                              key={i}
+                              onClick={() => voteForPlayer(i)}
+                              className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-3 px-4 rounded-lg transition-colors duration-200"
+                            >
+                              اللاعب {i + 1}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
-                    <button
-                      onClick={nextVoter}
-                      className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
-                    >
-                      التصويت الجاي
-                    </button>
+                    {hasVoted && !allPlayersVoted && (
+                      <button
+                        onClick={nextVoter}
+                        className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
+                      >
+                        التصويت الجاي
+                      </button>
+                    )}
+
+                    {allPlayersVoted && (
+                      <button
+                        onClick={finishVoting}
+                        className="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
+                      >
+                        شوف النتائج
+                      </button>
+                    )}
+
+                    <div className="mt-6 flex justify-center space-x-2">
+                      {gameState.questionOrder.map((playerIndex, i) => (
+                        <div
+                          key={i}
+                          className={`w-3 h-3 rounded-full ${
+                            i === gameState.currentQuestionIndex
+                              ? 'bg-blue-500'
+                              : gameState.votes[playerIndex] !== undefined
+                              ? 'bg-green-500'
+                              : 'bg-gray-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               );
@@ -429,11 +524,13 @@ export default function Home() {
                 return acc;
               }, {} as { [key: number]: number });
 
-              const mostVoted = Object.entries(voteCounts).reduce((a, b) => 
-                voteCounts[Number(a[0])] > voteCounts[Number(b[0])] ? a : b
+              // Find the player with the most votes
+              const mostVotedPlayer = Object.entries(voteCounts).reduce((a, b) => 
+                voteCounts[Number(a[0])] > voteCounts[Number(b[0])] ? a : b, ['0', 0]
               );
 
-              const spyWon = Number(mostVoted[0]) === gameState.spyIndex;
+              const mostVotedPlayerIndex = Number(mostVotedPlayer[0]);
+              const spyWon = mostVotedPlayerIndex !== gameState.spyIndex;
 
               return (
                 <div className="min-h-screen bg-gray-50 p-6">
@@ -457,6 +554,9 @@ export default function Home() {
                         </p>
                         <p className="text-gray-600 mb-4">
                           الكلمة كانت: <span className="font-bold text-blue-600">{gameState.word}</span>
+                        </p>
+                        <p className="text-gray-600 mb-4">
+                          أكثر لاعب تم التصويت عليه: اللاعب {mostVotedPlayerIndex + 1} ({mostVotedPlayer[1]} صوت)
                         </p>
                       </div>
                     </div>
