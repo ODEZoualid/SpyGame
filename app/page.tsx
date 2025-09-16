@@ -472,7 +472,7 @@ export default function Home() {
                         انتظروا انتهاء الوقت أو اتفقوا على التصويت
                       </p>
                       <p className="text-sm text-gray-500">
-                        الجاسوس (اللاعب {gameState.spyIndex + 1}) ما يعرفش الكلمة و لازم يعرفها!
+                        الجاسوس ما يعرفش الكلمة و لازم يعرفها!
                       </p>
                     </>
                   ) : (
@@ -485,7 +485,7 @@ export default function Home() {
                         اسأل سؤال على الكلمة
                       </p>
                       <p className="text-sm text-gray-500 mt-2">
-                        الجاسوس (اللاعب {gameState.spyIndex + 1}) ما يعرفش الكلمة و لازم يعرفها!
+                        الجاسوس ما يعرفش الكلمة و لازم يعرفها!
                       </p>
                     </>
                   )}
