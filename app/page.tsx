@@ -8,8 +8,12 @@ interface GameState {
   category: string;
   word: string;
   spyIndex: number;
-  currentQuestion: number;
-  phase: 'spy-assignment' | 'word-reveal' | 'questions' | 'voting';
+  phase: 'spy-assignment' | 'word-reveal' | 'questions' | 'voting' | 'results';
+  timeRemaining: number;
+  questionOrder: number[];
+  currentQuestionIndex: number;
+  votes: { [key: number]: number };
+  gameStartTime: number;
 }
 
 export default function Home() {
@@ -19,6 +23,7 @@ export default function Home() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [showSpyAssignment, setShowSpyAssignment] = useState(false);
   const [showWord, setShowWord] = useState(false);
+  const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
 
   const categories = [
     { id: '1', name: 'الأكل', words: ['الكسكس', 'الطاجين', 'الحريرة', 'البيتزا', 'البرغر', 'السلطة', 'الملوخية', 'الكباب', 'الفتة', 'المحشي', 'الرز', 'اللحم'] },
@@ -42,14 +47,25 @@ export default function Home() {
     const spyIndex = Math.floor(Math.random() * players);
     const word = category.words[Math.floor(Math.random() * category.words.length)];
     
+    // Create random question order for all players
+    const questionOrder = Array.from({ length: players }, (_, i) => i);
+    for (let i = questionOrder.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [questionOrder[i], questionOrder[j]] = [questionOrder[j], questionOrder[i]];
+    }
+    
     setGameState({
       players,
-      currentPlayer: 0,
+      currentPlayer: questionOrder[0],
       category: selectedCategory,
       word,
       spyIndex,
-      currentQuestion: 1,
-      phase: 'spy-assignment'
+      phase: 'spy-assignment',
+      timeRemaining: 300, // 5 minutes in seconds
+      questionOrder,
+      currentQuestionIndex: 0,
+      votes: {},
+      gameStartTime: Date.now()
     });
     setShowSpyAssignment(true);
     setShowWord(false);
@@ -59,25 +75,94 @@ export default function Home() {
   const nextQuestion = () => {
     setGameState(prev => {
       if (!prev) return prev;
-      if (prev.currentQuestion < 3) {
-        return { ...prev, currentQuestion: prev.currentQuestion + 1 };
-      } else if (prev.currentPlayer < prev.players - 1) {
+      
+      const nextQuestionIndex = prev.currentQuestionIndex + 1;
+      
+      if (nextQuestionIndex < prev.questionOrder.length) {
         return { 
           ...prev, 
-          currentPlayer: prev.currentPlayer + 1, 
-          currentQuestion: 1 
+          currentQuestionIndex: nextQuestionIndex,
+          currentPlayer: prev.questionOrder[nextQuestionIndex]
         };
       } else {
+        // All players have asked, start voting
         return { ...prev, phase: 'voting' };
       }
     });
   };
 
+  const startTimer = () => {
+    if (timer) clearInterval(timer);
+    
+    const newTimer = setInterval(() => {
+      setGameState(prev => {
+        if (!prev) return prev;
+        
+        const elapsed = Math.floor((Date.now() - prev.gameStartTime) / 1000);
+        const timeRemaining = Math.max(0, 300 - elapsed);
+        
+        if (timeRemaining <= 0) {
+          clearInterval(newTimer);
+          return { ...prev, phase: 'voting', timeRemaining: 0 };
+        }
+        
+        return { ...prev, timeRemaining };
+      });
+    }, 1000);
+    
+    setTimer(newTimer);
+  };
+
+  const stopTimer = () => {
+    if (timer) {
+      clearInterval(timer);
+      setTimer(null);
+    }
+  };
+
   const resetGame = () => {
+    stopTimer();
     setGameState(null);
     setShowSpyAssignment(false);
     setShowWord(false);
     setCurrentScreen('home');
+  };
+
+  const voteForPlayer = (votedPlayer: number) => {
+    setGameState(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        votes: {
+          ...prev.votes,
+          [prev.currentPlayer]: votedPlayer
+        }
+      };
+    });
+  };
+
+  const nextVoter = () => {
+    setGameState(prev => {
+      if (!prev) return prev;
+      const nextVoterIndex = prev.currentQuestionIndex + 1;
+      
+      if (nextVoterIndex < prev.questionOrder.length) {
+        return {
+          ...prev,
+          currentQuestionIndex: nextVoterIndex,
+          currentPlayer: prev.questionOrder[nextVoterIndex]
+        };
+      } else {
+        // All players have voted, show results
+        return { ...prev, phase: 'results' };
+      }
+    });
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const showWordToOthers = () => {
@@ -88,7 +173,12 @@ export default function Home() {
 
   const startQuestions = () => {
     setShowWord(false);
-    setGameState(prev => prev ? { ...prev, phase: 'questions' } : prev);
+    setGameState(prev => {
+      if (!prev) return prev;
+      const updatedState = { ...prev, phase: 'questions' as const };
+      startTimer();
+      return updatedState;
+    });
   };
 
   if (currentScreen === 'create') {
@@ -231,63 +321,168 @@ export default function Home() {
       );
     }
 
-    // Phase 3: Questions phase (no word/spy shown)
-    if (gameState.phase === 'questions') {
-      return (
-        <div className="min-h-screen bg-gray-50 p-6">
-          <div className="max-w-md mx-auto">
-            <div className="text-center mb-8">
-              <h1 className="text-xl font-bold text-gray-900">
-                اللاعب {gameState.currentPlayer + 1}
-              </h1>
-              <p className="text-sm text-gray-600">
-                السؤال {gameState.currentQuestion} من 3
-              </p>
-            </div>
+            // Phase 3: Questions phase (no word/spy shown)
+            if (gameState.phase === 'questions') {
+              return (
+                <div className="min-h-screen bg-gray-50 p-6">
+                  <div className="max-w-md mx-auto">
+                    <div className="text-center mb-8">
+                      <h1 className="text-xl font-bold text-gray-900">
+                        اللاعب {gameState.currentPlayer + 1}
+                      </h1>
+                      <div className="text-4xl font-bold text-red-600 mb-2">
+                        {formatTime(gameState.timeRemaining)}
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        الوقت المتبقي
+                      </p>
+                    </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 min-h-[200px] flex items-center justify-center mb-8">
-              <div className="text-center">
-                <div className="text-6xl mb-4">❓</div>
-                <h2 className="text-2xl font-bold text-gray-700 mb-4">
-                  دورك تسأل
-                </h2>
-                <p className="text-gray-600">
-                  اسأل سؤال على الكلمة
-                </p>
-              </div>
-            </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 min-h-[200px] flex items-center justify-center mb-8">
+                      <div className="text-center">
+                        <div className="text-6xl mb-4">❓</div>
+                        <h2 className="text-2xl font-bold text-gray-700 mb-4">
+                          دورك تسأل
+                        </h2>
+                        <p className="text-gray-600">
+                          اسأل سؤال على الكلمة
+                        </p>
+                        <p className="text-sm text-gray-500 mt-2">
+                          الجاسوس (اللاعب {gameState.spyIndex + 1}) ما يعرفش الكلمة و لازم يعرفها!
+                        </p>
+                      </div>
+                    </div>
 
-            <div className="text-center mb-8">
-              <p className="text-gray-600 mb-4">
-                اسأل سؤال على الكلمة. الجاسوس (اللاعب {gameState.spyIndex + 1}) ما يعرفش الكلمة و لازم يعرفها!
-              </p>
-            </div>
+                    <button
+                      onClick={nextQuestion}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
+                    >
+                      السؤال الجاي
+                    </button>
 
-            <button
-              onClick={nextQuestion}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
-            >
-              {gameState.currentQuestion < 3 ? 'السؤال الجاي' : 'دور للاعب الجاي'}
-            </button>
+                    <div className="mt-6 flex justify-center space-x-2">
+                      {Array.from({ length: gameState.players }, (_, i) => (
+                        <div
+                          key={i}
+                          className={`w-3 h-3 rounded-full ${
+                            i === gameState.currentPlayer
+                              ? 'bg-blue-500'
+                              : gameState.questionOrder.slice(0, gameState.currentQuestionIndex + 1).includes(i)
+                              ? 'bg-green-500'
+                              : 'bg-gray-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
 
-            <div className="mt-6 flex justify-center space-x-2">
-              {Array.from({ length: gameState.players }, (_, i) => (
-                <div
-                  key={i}
-                  className={`w-3 h-3 rounded-full ${
-                    i === gameState.currentPlayer
-                      ? 'bg-blue-500'
-                      : i < gameState.currentPlayer
-                      ? 'bg-green-500'
-                      : 'bg-gray-300'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      );
-    }
+            // Phase 4: Voting phase
+            if (gameState.phase === 'voting') {
+              return (
+                <div className="min-h-screen bg-gray-50 p-6">
+                  <div className="max-w-md mx-auto">
+                    <div className="text-center mb-8">
+                      <h1 className="text-2xl font-bold text-gray-900 mb-4">
+                        التصويت
+                      </h1>
+                      <p className="text-gray-600">
+                        اللاعب {gameState.currentPlayer + 1} يصوت
+                      </p>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-8">
+                      <h2 className="text-xl font-bold text-gray-700 mb-6 text-center">
+                        من تعتقد أنه الجاسوس؟
+                      </h2>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        {Array.from({ length: gameState.players }, (_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => voteForPlayer(i)}
+                            className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-3 px-4 rounded-lg transition-colors duration-200"
+                          >
+                            اللاعب {i + 1}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={nextVoter}
+                      className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
+                    >
+                      التصويت الجاي
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            // Phase 5: Results phase
+            if (gameState.phase === 'results') {
+              const voteCounts = Object.values(gameState.votes).reduce((acc, vote) => {
+                acc[vote] = (acc[vote] || 0) + 1;
+                return acc;
+              }, {} as { [key: number]: number });
+
+              const mostVoted = Object.entries(voteCounts).reduce((a, b) => 
+                voteCounts[Number(a[0])] > voteCounts[Number(b[0])] ? a : b
+              );
+
+              const spyWon = Number(mostVoted[0]) === gameState.spyIndex;
+
+              return (
+                <div className="min-h-screen bg-gray-50 p-6">
+                  <div className="max-w-md mx-auto">
+                    <div className="text-center mb-8">
+                      <h1 className="text-2xl font-bold text-gray-900 mb-4">
+                        النتائج
+                      </h1>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-8">
+                      <div className="text-center">
+                        <div className="text-6xl mb-4">
+                          {spyWon ? '🎉' : '🕵️'}
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-700 mb-4">
+                          {spyWon ? 'الجاسوس فاز!' : 'الجاسوس انكشف!'}
+                        </h2>
+                        <p className="text-gray-600 mb-4">
+                          الجاسوس كان اللاعب {gameState.spyIndex + 1}
+                        </p>
+                        <p className="text-gray-600 mb-4">
+                          الكلمة كانت: <span className="font-bold text-blue-600">{gameState.word}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+                      <h3 className="text-lg font-bold text-gray-700 mb-4 text-center">
+                        نتائج التصويت
+                      </h3>
+                      {Object.entries(voteCounts).map(([player, votes]) => (
+                        <div key={player} className="flex justify-between items-center py-2">
+                          <span className="text-gray-600">اللاعب {Number(player) + 1}</span>
+                          <span className="font-bold text-blue-600">{votes} صوت</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={resetGame}
+                      className="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
+                    >
+                      لعبة جديدة
+                    </button>
+                  </div>
+                </div>
+              );
+            }
   }
 
   return (
