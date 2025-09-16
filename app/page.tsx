@@ -27,6 +27,7 @@ export default function Home() {
   const [showWord, setShowWord] = useState(false);
   const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
   const [cardTimer, setCardTimer] = useState<NodeJS.Timeout | null>(null);
+  const [isCardShowing, setIsCardShowing] = useState(false);
 
   const categories = [
     { id: '1', name: 'الأكل', words: ['الكسكس', 'الطاجين', 'الحريرة', 'البيتزا', 'البرغر', 'السلطة', 'الملوخية', 'الكباب', 'الفتة', 'المحشي', 'الرز', 'اللحم'] },
@@ -146,6 +147,7 @@ export default function Home() {
     setGameState(null);
     setShowSpyAssignment(false);
     setShowWord(false);
+    setIsCardShowing(false);
     setCurrentScreen('home');
   };
 
@@ -211,12 +213,18 @@ export default function Home() {
 
 
   const flipCard = () => {
+    // Show the card immediately
+    setIsCardShowing(true);
+    
     setGameState(prev => {
       if (!prev) return prev;
       
       // Show the card result for 3 seconds, then flip back and pass to next player
       const newTimer = setTimeout(() => {
         const nextCardFlipper = prev.currentCardFlipper + 1;
+        
+        // Hide the card first
+        setIsCardShowing(false);
         
         if (nextCardFlipper < prev.players) {
           setGameState(prevState => prevState ? {
@@ -238,8 +246,7 @@ export default function Home() {
       setCardTimer(newTimer);
       
       return {
-        ...prev,
-        cardsFlipped: prev.cardsFlipped + 1
+        ...prev
       };
     });
   };
@@ -316,23 +323,21 @@ export default function Home() {
       // Phase 1: Card flipping - each player flips the same card
       if (gameState.phase === 'card-flipping') {
         const isSpy = gameState.currentCardFlipper === gameState.spyIndex;
-        const hasFlipped = gameState.cardsFlipped > 0;
-        const isShowingResult = hasFlipped && gameState.cardsFlipped <= gameState.currentCardFlipper + 1;
         
         return (
           <div className="min-h-screen bg-gray-50 p-6">
             <div className="max-w-md mx-auto">
               <div className="text-center mb-8">
                 <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                  {isShowingResult ? `دور اللاعب ${gameState.currentCardFlipper + 1}` : 'قلب البطاقة'}
+                  {isCardShowing ? `دور اللاعب ${gameState.currentCardFlipper + 1}` : 'قلب البطاقة'}
                 </h1>
                 <p className="text-gray-600 mb-4">
-                  {isShowingResult ? 'شوف بطاقتك و اقلبها للاعب الجاي' : `اللاعب ${gameState.currentCardFlipper + 1} يقلب البطاقة`}
+                  {isCardShowing ? 'شوف بطاقتك و اقلبها للاعب الجاي' : `اللاعب ${gameState.currentCardFlipper + 1} يقلب البطاقة`}
                 </p>
                 <p className="text-sm text-gray-500">
                   {gameState.cardsFlipped} من {gameState.players} شافوا البطاقة
                 </p>
-                {isShowingResult && (
+                {isCardShowing && (
                   <p className="text-sm text-orange-500 mt-2">
                     اقلب البطاقة و اعطيها للاعب الجاي بعد 3 ثواني
                   </p>
@@ -341,7 +346,7 @@ export default function Home() {
 
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 min-h-[300px] flex items-center justify-center mb-8">
                 <div className="text-center">
-                  {isShowingResult ? (
+                  {isCardShowing ? (
                     isSpy ? (
                       <>
                         <div className="text-8xl mb-6">🕵️</div>
@@ -383,7 +388,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {!isShowingResult && (
+              {!isCardShowing && (
                 <button
                   onClick={flipCard}
                   className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
@@ -392,7 +397,7 @@ export default function Home() {
                 </button>
               )}
 
-              {isShowingResult && (
+              {isCardShowing && (
                 <div className="bg-gray-100 text-gray-600 font-medium py-3 px-6 rounded-lg w-full text-lg py-4 text-center">
                   اقلب البطاقة و اعطيها للاعب الجاي...
                 </div>
@@ -407,7 +412,7 @@ export default function Home() {
                     <div
                       key={i}
                       className={`w-3 h-3 rounded-full ${
-                        i === gameState.currentCardFlipper && !isShowingResult
+                        i === gameState.currentCardFlipper && !isCardShowing
                           ? 'bg-purple-500'
                           : i < gameState.cardsFlipped
                           ? 'bg-green-500'
