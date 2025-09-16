@@ -8,12 +8,14 @@ interface GameState {
   category: string;
   word: string;
   spyIndex: number;
-  phase: 'spy-assignment' | 'word-reveal' | 'questions' | 'voting' | 'results';
+  phase: 'card-flipping' | 'questions' | 'voting' | 'results';
   timeRemaining: number;
   questionOrder: number[];
   currentQuestionIndex: number;
   votes: { [key: number]: number };
   gameStartTime: number;
+  cardsFlipped: number;
+  currentCardFlipper: number;
 }
 
 export default function Home() {
@@ -24,6 +26,7 @@ export default function Home() {
   const [showSpyAssignment, setShowSpyAssignment] = useState(false);
   const [showWord, setShowWord] = useState(false);
   const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
+  const [cardTimer, setCardTimer] = useState<NodeJS.Timeout | null>(null);
 
   const categories = [
     { id: '1', name: 'الأكل', words: ['الكسكس', 'الطاجين', 'الحريرة', 'البيتزا', 'البرغر', 'السلطة', 'الملوخية', 'الكباب', 'الفتة', 'المحشي', 'الرز', 'اللحم'] },
@@ -60,14 +63,16 @@ export default function Home() {
       category: selectedCategory,
       word,
       spyIndex,
-      phase: 'spy-assignment',
+      phase: 'card-flipping',
       timeRemaining: 300, // 5 minutes in seconds
       questionOrder,
       currentQuestionIndex: 0,
       votes: {},
-      gameStartTime: Date.now()
+      gameStartTime: Date.now(),
+      cardsFlipped: 0,
+      currentCardFlipper: 0
     });
-    setShowSpyAssignment(true);
+    setShowSpyAssignment(false);
     setShowWord(false);
     setCurrentScreen('game');
   };
@@ -134,6 +139,10 @@ export default function Home() {
 
   const resetGame = () => {
     stopTimer();
+    if (cardTimer) {
+      clearTimeout(cardTimer);
+      setCardTimer(null);
+    }
     setGameState(null);
     setShowSpyAssignment(false);
     setShowWord(false);
@@ -200,14 +209,42 @@ export default function Home() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const showWordToOthers = () => {
-    setShowSpyAssignment(false);
-    setShowWord(true);
-    setGameState(prev => prev ? { ...prev, phase: 'word-reveal' } : prev);
+
+  const flipCard = () => {
+    setGameState(prev => {
+      if (!prev) return prev;
+      
+      // Show the card result for 3 seconds
+      const newTimer = setTimeout(() => {
+        const nextCardFlipper = prev.currentCardFlipper + 1;
+        
+        if (nextCardFlipper < prev.players) {
+          setGameState(prevState => prevState ? {
+            ...prevState,
+            currentCardFlipper: nextCardFlipper,
+            cardsFlipped: prevState.cardsFlipped + 1
+          } : prevState);
+        } else {
+          // All cards flipped, start questions
+          setGameState(prevState => prevState ? {
+            ...prevState,
+            phase: 'questions',
+            cardsFlipped: prevState.cardsFlipped + 1,
+            currentPlayer: prevState.questionOrder[0]
+          } : prevState);
+        }
+      }, 3000);
+      
+      setCardTimer(newTimer);
+      
+      return {
+        ...prev,
+        cardsFlipped: prev.cardsFlipped + 1
+      };
+    });
   };
 
   const startQuestions = () => {
-    setShowWord(false);
     setGameState(prev => {
       if (!prev) return prev;
       const updatedState = { ...prev, phase: 'questions' as const };
@@ -275,106 +312,110 @@ export default function Home() {
     );
   }
 
-  if (currentScreen === 'game' && gameState) {
-    // Phase 1: Randomly assign spy (everyone sees this)
-    if (gameState.phase === 'spy-assignment' && showSpyAssignment) {
-      return (
-        <div className="min-h-screen bg-gray-50 p-6">
-          <div className="max-w-md mx-auto">
-            <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                اختيار الجاسوس
-              </h1>
-              <p className="text-gray-600 mb-8">
-                سيتم اختيار الجاسوس عشوائياً الآن
-              </p>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 min-h-[200px] flex items-center justify-center mb-8">
-              <div className="text-center">
-                <div className="text-6xl mb-4">🎲</div>
-                <h2 className="text-3xl font-bold text-purple-600 mb-4">
-                  الجاسوس هو اللاعب {gameState.spyIndex + 1}
-                </h2>
+    if (currentScreen === 'game' && gameState) {
+      // Phase 1: Card flipping - each player flips their card
+      if (gameState.phase === 'card-flipping') {
+        const isSpy = gameState.currentCardFlipper === gameState.spyIndex;
+        const hasFlipped = gameState.cardsFlipped > 0;
+        const isShowingResult = hasFlipped && gameState.cardsFlipped <= gameState.currentCardFlipper + 1;
+        
+        return (
+          <div className="min-h-screen bg-gray-50 p-6">
+            <div className="max-w-md mx-auto">
+              <div className="text-center mb-8">
+                <h1 className="text-2xl font-bold text-gray-900 mb-4">
+                  {isShowingResult ? `بطاقة اللاعب ${gameState.currentCardFlipper + 1}` : 'قلب البطاقة'}
+                </h1>
                 <p className="text-gray-600 mb-4">
-                  اللاعب {gameState.spyIndex + 1} هو الجاسوس!
+                  {isShowingResult ? 'نتيجة البطاقة' : `اللاعب ${gameState.currentCardFlipper + 1} يقلب البطاقة`}
                 </p>
-                <p className="text-sm text-gray-500 mb-4">
-                  الجاسوس ما يعرفش الكلمة و لازم يعرفها من الأسئلة
+                <p className="text-sm text-gray-500">
+                  {gameState.cardsFlipped} من {gameState.players} قلبوا البطاقات
                 </p>
-                <div className="bg-gray-50 rounded-lg p-4 mt-4">
-                  <p className="text-sm font-bold text-gray-700 mb-2">ترتيب الأسئلة:</p>
-                  <div className="flex justify-center space-x-2">
-                    {gameState.questionOrder.map((playerIndex, i) => (
-                      <span
-                        key={i}
-                        className={`px-2 py-1 rounded text-xs font-bold ${
-                          playerIndex === gameState.spyIndex
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-blue-100 text-blue-700'
-                        }`}
-                      >
-                        {playerIndex + 1}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    اللاعب {gameState.questionOrder[0] + 1} يبدأ أولاً
+                {isShowingResult && (
+                  <p className="text-sm text-orange-500 mt-2">
+                    انتظر 3 ثواني للانتقال للاعب التالي
                   </p>
+                )}
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 min-h-[300px] flex items-center justify-center mb-8">
+                <div className="text-center">
+                  {isShowingResult ? (
+                    isSpy ? (
+                      <>
+                        <div className="text-8xl mb-6">🕵️</div>
+                        <h2 className="text-3xl font-bold text-red-600 mb-4">
+                          انتا الجاسوس!
+                        </h2>
+                        <p className="text-gray-600 mb-4">
+                          ما تعرفش الكلمة و لازم تعرفها من الأسئلة
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          لا تخبر أحداً أنك الجاسوس!
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-8xl mb-6">🔍</div>
+                        <h2 className="text-3xl font-bold text-blue-600 mb-4">
+                          {gameState.word}
+                        </h2>
+                        <p className="text-gray-600 mb-4">
+                          هاد هي الكلمة اللي لازم تسألوا عليها
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          الجاسوس ما يعرفش هاد الكلمة!
+                        </p>
+                      </>
+                    )
+                  ) : (
+                    <>
+                      <div className="text-8xl mb-6">🎴</div>
+                      <h2 className="text-2xl font-bold text-gray-700 mb-4">
+                        اضغط لقلب البطاقة
+                      </h2>
+                      <p className="text-gray-600">
+                        فقط اللاعب {gameState.currentCardFlipper + 1} يرى ما في البطاقة
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
-            </div>
 
-            <button
-              onClick={showWordToOthers}
-              className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
-            >
-              فهمت - شوف الكلمة
-            </button>
-          </div>
-        </div>
-      );
-    }
+              {!isShowingResult && (
+                <button
+                  onClick={flipCard}
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
+                >
+                  قلب البطاقة
+                </button>
+              )}
 
-    // Phase 2: Show word to everyone except spy
-    if (gameState.phase === 'word-reveal' && showWord) {
-      return (
-        <div className="min-h-screen bg-gray-50 p-6">
-          <div className="max-w-md mx-auto">
-            <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                الكلمة للجميع (عدا الجاسوس)
-              </h1>
-              <p className="text-gray-600 mb-8">
-                كل اللاعبين عدا الجاسوس (اللاعب {gameState.spyIndex + 1}) يجب أن يروا الكلمة
-              </p>
-            </div>
+              {isShowingResult && (
+                <div className="bg-gray-100 text-gray-600 font-medium py-3 px-6 rounded-lg w-full text-lg py-4 text-center">
+                  انتظر...
+                </div>
+              )}
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 min-h-[200px] flex items-center justify-center mb-8">
-              <div className="text-center">
-                <div className="text-6xl mb-4">🔍</div>
-                <h2 className="text-3xl font-bold text-blue-600 mb-4">
-                  {gameState.word}
-                </h2>
-                <p className="text-gray-600">
-                  هاد هي الكلمة اللي لازم تسألوا عليها
-                </p>
-                <p className="text-sm text-red-500 mt-2">
-                  الجاسوس (اللاعب {gameState.spyIndex + 1}) ما يلزمش يشوف هاد الشاشة!
-                </p>
+              <div className="mt-6 flex justify-center space-x-2">
+                {Array.from({ length: gameState.players }, (_, i) => (
+                  <div
+                    key={i}
+                    className={`w-3 h-3 rounded-full ${
+                      i === gameState.currentCardFlipper && !isShowingResult
+                        ? 'bg-purple-500'
+                        : i < gameState.cardsFlipped
+                        ? 'bg-green-500'
+                        : 'bg-gray-300'
+                    }`}
+                  />
+                ))}
               </div>
             </div>
-
-            <button
-              onClick={startQuestions}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
-            >
-              الكل شاف الكلمة - بدا الأسئلة
-            </button>
           </div>
-        </div>
-      );
-    }
+        );
+      }
 
             // Phase 3: Questions phase (no word/spy shown)
             if (gameState.phase === 'questions') {
