@@ -47,7 +47,7 @@ export default function Home() {
     const spyIndex = Math.floor(Math.random() * players);
     const word = category.words[Math.floor(Math.random() * category.words.length)];
     
-    // Create random question order for all players
+    // Create random question order for all players (including spy)
     const questionOrder = Array.from({ length: players }, (_, i) => i);
     for (let i = questionOrder.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -56,7 +56,7 @@ export default function Home() {
     
     setGameState({
       players,
-      currentPlayer: questionOrder[0],
+      currentPlayer: questionOrder[0], // First player in random order
       category: selectedCategory,
       word,
       spyIndex,
@@ -165,8 +165,24 @@ export default function Home() {
           currentPlayer: prev.questionOrder[nextVoterIndex]
         };
       } else {
-        // All players have voted, show results
-        return { ...prev, phase: 'results' };
+        // All players in the order have voted, but check if everyone actually voted
+        const allPlayersVoted = prev.questionOrder.every(playerIndex => 
+          prev.votes[playerIndex] !== undefined
+        );
+        
+        if (allPlayersVoted) {
+          return { ...prev, phase: 'results' };
+        } else {
+          // Go back to first player who hasn't voted
+          const firstUnvotedIndex = prev.questionOrder.findIndex(playerIndex => 
+            prev.votes[playerIndex] === undefined
+          );
+          return {
+            ...prev,
+            currentQuestionIndex: firstUnvotedIndex,
+            currentPlayer: prev.questionOrder[firstUnvotedIndex]
+          };
+        }
       }
     });
   };
@@ -283,9 +299,29 @@ export default function Home() {
                 <p className="text-gray-600 mb-4">
                   اللاعب {gameState.spyIndex + 1} هو الجاسوس!
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 mb-4">
                   الجاسوس ما يعرفش الكلمة و لازم يعرفها من الأسئلة
                 </p>
+                <div className="bg-gray-50 rounded-lg p-4 mt-4">
+                  <p className="text-sm font-bold text-gray-700 mb-2">ترتيب الأسئلة:</p>
+                  <div className="flex justify-center space-x-2">
+                    {gameState.questionOrder.map((playerIndex, i) => (
+                      <span
+                        key={i}
+                        className={`px-2 py-1 rounded text-xs font-bold ${
+                          playerIndex === gameState.spyIndex
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}
+                      >
+                        {playerIndex + 1}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    اللاعب {gameState.questionOrder[0] + 1} يبدأ أولاً
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -437,6 +473,7 @@ export default function Home() {
               const allPlayersVoted = gameState.questionOrder.every(playerIndex => 
                 gameState.votes[playerIndex] !== undefined
               );
+              const votedCount = Object.keys(gameState.votes).length;
               
               return (
                 <div className="min-h-screen bg-gray-50 p-6">
@@ -449,8 +486,13 @@ export default function Home() {
                         اللاعب {gameState.currentPlayer + 1} يصوت
                       </p>
                       <p className="text-sm text-gray-500 mt-2">
-                        {Object.keys(gameState.votes).length} من {gameState.players} صوتوا
+                        {votedCount} من {gameState.players} صوتوا
                       </p>
+                      {!allPlayersVoted && (
+                        <p className="text-xs text-orange-500 mt-1">
+                          يجب على جميع اللاعبين التصويت قبل عرض النتائج
+                        </p>
+                      )}
                     </div>
 
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-8">
@@ -498,19 +540,38 @@ export default function Home() {
                       </button>
                     )}
 
-                    <div className="mt-6 flex justify-center space-x-2">
-                      {gameState.questionOrder.map((playerIndex, i) => (
-                        <div
-                          key={i}
-                          className={`w-3 h-3 rounded-full ${
-                            i === gameState.currentQuestionIndex
-                              ? 'bg-blue-500'
-                              : gameState.votes[playerIndex] !== undefined
-                              ? 'bg-green-500'
-                              : 'bg-gray-300'
-                          }`}
-                        />
-                      ))}
+                    <div className="mt-6">
+                      <p className="text-center text-sm text-gray-600 mb-3">
+                        تقدم التصويت
+                      </p>
+                      <div className="flex justify-center space-x-2">
+                        {gameState.questionOrder.map((playerIndex, i) => (
+                          <div
+                            key={i}
+                            className={`w-3 h-3 rounded-full ${
+                              i === gameState.currentQuestionIndex
+                                ? 'bg-blue-500'
+                                : gameState.votes[playerIndex] !== undefined
+                                ? 'bg-green-500'
+                                : 'bg-gray-300'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex justify-center space-x-4 mt-2 text-xs text-gray-500">
+                        {gameState.questionOrder.map((playerIndex, i) => (
+                          <span
+                            key={i}
+                            className={`${
+                              gameState.votes[playerIndex] !== undefined
+                                ? 'text-green-600 font-bold'
+                                : 'text-gray-400'
+                            }`}
+                          >
+                            {playerIndex + 1}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
