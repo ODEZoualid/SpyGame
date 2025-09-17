@@ -21,6 +21,7 @@ interface GameState {
 export default function Home() {
   const [currentScreen, setCurrentScreen] = useState('home');
   const [players, setPlayers] = useState(4);
+  const [playerInput, setPlayerInput] = useState('4');
   const [selectedCategory, setSelectedCategory] = useState('الأكل');
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [showSpyAssignment, setShowSpyAssignment] = useState(false);
@@ -47,6 +48,13 @@ export default function Home() {
   const startGame = () => {
     const category = categories.find(c => c.name === selectedCategory);
     if (!category) return;
+    
+    // Stop any existing timer
+    stopTimer();
+    if (cardTimer) {
+      clearTimeout(cardTimer);
+      setCardTimer(null);
+    }
     
     const spyIndex = Math.floor(Math.random() * players);
     const word = category.words[Math.floor(Math.random() * category.words.length)];
@@ -112,11 +120,13 @@ export default function Home() {
   const startTimer = () => {
     if (timer) clearInterval(timer);
     
+    const questionsStartTime = Date.now();
+    
     const newTimer = setInterval(() => {
       setGameState(prev => {
         if (!prev) return prev;
         
-        const elapsed = Math.floor((Date.now() - prev.gameStartTime) / 1000);
+        const elapsed = Math.floor((Date.now() - questionsStartTime) / 1000);
         const timeRemaining = Math.max(0, 300 - elapsed);
         
         if (timeRemaining <= 0) {
@@ -285,16 +295,21 @@ export default function Home() {
                 type="number"
                 min="3"
                 max="10"
-                value={players}
+                value={playerInput}
                 onChange={(e) => {
                   const value = e.target.value;
-                  if (value === '') {
-                    setPlayers(3);
-                  } else {
+                  setPlayerInput(value);
+                  if (value !== '') {
                     const num = parseInt(value);
                     if (num >= 3 && num <= 10) {
                       setPlayers(num);
                     }
+                  }
+                }}
+                onBlur={() => {
+                  if (playerInput === '' || parseInt(playerInput) < 3 || parseInt(playerInput) > 10) {
+                    setPlayerInput('4');
+                    setPlayers(4);
                   }
                 }}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200"
