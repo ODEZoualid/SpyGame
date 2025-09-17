@@ -243,7 +243,7 @@ export default function Home() {
           // Start the timer when questions phase begins
           startTimer();
         }
-      }, 3000);
+      }, 2000);
       
       setCardTimer(newTimer);
       
@@ -286,7 +286,17 @@ export default function Home() {
                 min="3"
                 max="10"
                 value={players}
-                onChange={(e) => setPlayers(parseInt(e.target.value) || 3)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === '') {
+                    setPlayers(3);
+                  } else {
+                    const num = parseInt(value);
+                    if (num >= 3 && num <= 10) {
+                      setPlayers(num);
+                    }
+                  }
+                }}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200"
               />
             </div>
@@ -341,7 +351,7 @@ export default function Home() {
                 </p>
                 {isCardShowing && (
                   <p className="text-sm text-orange-500 mt-2">
-                    اقلب البطاقة و اعطيها للاعب الجاي بعد 3 ثواني
+                    اقلب البطاقة و اعطيها للاعب الجاي بعد ثانيتين
                   </p>
                 )}
               </div>
@@ -452,7 +462,7 @@ export default function Home() {
             <div className="max-w-md mx-auto">
               <div className="text-center mb-8">
                 <h1 className="text-xl font-bold text-gray-900">
-                  {allPlayersAsked ? 'انتهت الأسئلة' : `اللاعب ${gameState.currentPlayer + 1}`}
+                  مرحلة الأسئلة
                 </h1>
                 <div className="text-4xl font-bold text-red-600 mb-2">
                   {formatTime(gameState.timeRemaining)}
@@ -464,56 +474,30 @@ export default function Home() {
 
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 min-h-[200px] flex items-center justify-center mb-8">
                 <div className="text-center">
-                  {allPlayersAsked ? (
-                    <>
-                      <div className="text-6xl mb-4">⏰</div>
-                      <h2 className="text-2xl font-bold text-gray-700 mb-4">
-                        كل اللاعبين سألوا
-                      </h2>
-                      <p className="text-gray-600 mb-4">
-                        انتظروا انتهاء الوقت أو اتفقوا على التصويت
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        الجاسوس ما يعرفش الكلمة و لازم يعرفها!
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-6xl mb-4">❓</div>
-                      <h2 className="text-2xl font-bold text-gray-700 mb-4">
-                        دورك تسأل
-                      </h2>
-                      <p className="text-gray-600">
-                        اسأل سؤال على الكلمة
-                      </p>
-                      <p className="text-sm text-gray-500 mt-2">
-                        الجاسوس ما يعرفش الكلمة و لازم يعرفها!
-                      </p>
-                    </>
-                  )}
+                  <div className="text-6xl mb-4">❓</div>
+                  <h2 className="text-2xl font-bold text-gray-700 mb-4">
+                    اسألوا الأسئلة
+                  </h2>
+                  <p className="text-gray-600 mb-4">
+                    اسألوا أسئلة على الكلمة لتعرفوا من هو الجاسوس
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    الجاسوس ما يعرفش الكلمة و لازم يعرفها!
+                  </p>
                 </div>
               </div>
 
-              {!allPlayersAsked ? (
+              <div className="space-y-3">
                 <button
-                  onClick={nextQuestion}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
+                  onClick={skipToVoting}
+                  className="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
                 >
-                  السؤال الجاي
+                  اتفقنا - نبدأ التصويت
                 </button>
-              ) : (
-                <div className="space-y-3">
-                  <button
-                    onClick={skipToVoting}
-                    className="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
-                  >
-                    اتفقنا - نبدأ التصويت
-                  </button>
-                  <p className="text-center text-sm text-gray-500">
-                    أو انتظروا انتهاء الوقت ({formatTime(gameState.timeRemaining)})
-                  </p>
-                </div>
-              )}
+                <p className="text-center text-sm text-gray-500">
+                  أو انتظروا انتهاء الوقت ({formatTime(gameState.timeRemaining)})
+                </p>
+              </div>
 
               <div className="mt-6 flex justify-center space-x-2">
                 {Array.from({ length: gameState.players }, (_, i) => (
