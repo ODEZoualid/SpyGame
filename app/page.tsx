@@ -240,6 +240,8 @@ export default function Home() {
             cardsFlipped: prevState.cardsFlipped + 1,
             currentPlayer: prevState.questionOrder[0]
           } : prevState);
+          // Start the timer when questions phase begins
+          startTimer();
         }
       }, 3000);
       
