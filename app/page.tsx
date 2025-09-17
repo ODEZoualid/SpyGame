@@ -49,6 +49,10 @@ export default function Home() {
     const category = categories.find(c => c.name === selectedCategory);
     if (!category) return;
     
+    // Get the number of players from input
+    const numPlayers = parseInt(playerInput);
+    if (isNaN(numPlayers) || numPlayers < 3 || numPlayers > 10) return;
+    
     // Stop any existing timer
     stopTimer();
     if (cardTimer) {
@@ -56,18 +60,18 @@ export default function Home() {
       setCardTimer(null);
     }
     
-    const spyIndex = Math.floor(Math.random() * players);
+    const spyIndex = Math.floor(Math.random() * numPlayers);
     const word = category.words[Math.floor(Math.random() * category.words.length)];
     
     // Create random question order for all players (including spy)
-    const questionOrder = Array.from({ length: players }, (_, i) => i);
+    const questionOrder = Array.from({ length: numPlayers }, (_, i) => i);
     for (let i = questionOrder.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [questionOrder[i], questionOrder[j]] = [questionOrder[j], questionOrder[i]];
     }
     
     setGameState({
-      players,
+      players: numPlayers,
       currentPlayer: questionOrder[0], // First player in random order
       category: selectedCategory,
       word,
@@ -299,17 +303,12 @@ export default function Home() {
                 onChange={(e) => {
                   const value = e.target.value;
                   setPlayerInput(value);
+                  // Update players state when we have a valid number
                   if (value !== '') {
                     const num = parseInt(value);
-                    if (num >= 3 && num <= 10) {
+                    if (!isNaN(num) && num >= 3 && num <= 10) {
                       setPlayers(num);
                     }
-                  }
-                }}
-                onBlur={() => {
-                  if (playerInput === '' || parseInt(playerInput) < 3 || parseInt(playerInput) > 10) {
-                    setPlayerInput('4');
-                    setPlayers(4);
                   }
                 }}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200"
@@ -335,7 +334,7 @@ export default function Home() {
 
             <button
               onClick={startGame}
-              disabled={players < 3}
+              disabled={!playerInput || parseInt(playerInput) < 3 || parseInt(playerInput) > 10 || isNaN(parseInt(playerInput))}
               className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               بدا اللعبة
