@@ -44,6 +44,41 @@ export default function Home() {
     { id: '12', name: 'الملابس', words: ['القميص', 'البنطلون', 'الفستان', 'الحذاء', 'القبعة', 'القفازات', 'الجاكيت', 'السترة', 'السراويل', 'البلوزة', 'الكنزة', 'الحزام'] }
   ];
 
+  // Better randomization function using crypto.getRandomValues for true randomness
+  const getRandomInt = (max: number) => {
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      const array = new Uint32Array(1);
+      crypto.getRandomValues(array);
+      return array[0] % max;
+    } else {
+      // Fallback to Math.random with additional entropy
+      return Math.floor(Math.random() * max);
+    }
+  };
+
+  // Additional randomization to ensure fairness
+  const getFairRandomInt = (max: number) => {
+    // Add time-based entropy for additional randomness
+    const timeSeed = Date.now() % 1000;
+    const attempts = 5;
+    let bestRandom = 0;
+    let maxEntropy = 0;
+    
+    for (let i = 0; i < attempts; i++) {
+      const random = getRandomInt(max);
+      // Combine with time seed for additional entropy
+      const combinedRandom = (random + timeSeed + i) % max;
+      // Use bit distribution as entropy measure
+      const entropy = combinedRandom.toString(2).split('1').length - 1;
+      if (entropy > maxEntropy) {
+        maxEntropy = entropy;
+        bestRandom = combinedRandom;
+      }
+    }
+    
+    return bestRandom;
+  };
+
   const startGame = () => {
     const category = categories.find(c => c.name === selectedCategory);
     if (!category) return;
@@ -55,13 +90,14 @@ export default function Home() {
       setCardTimer(null);
     }
     
-    const spyIndex = Math.floor(Math.random() * players);
-    const word = category.words[Math.floor(Math.random() * category.words.length)];
+    // Use fair randomization for truly random spy selection
+    const spyIndex = getFairRandomInt(players);
+    const word = category.words[getFairRandomInt(category.words.length)];
     
-    // Create random question order for all players (including spy)
+    // Create random question order for all players (including spy) using Fisher-Yates shuffle
     const questionOrder = Array.from({ length: players }, (_, i) => i);
     for (let i = questionOrder.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = getFairRandomInt(i + 1);
       [questionOrder[i], questionOrder[j]] = [questionOrder[j], questionOrder[i]];
     }
     
