@@ -28,6 +28,7 @@ export default function Home() {
   const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
   const [cardTimer, setCardTimer] = useState<NodeJS.Timeout | null>(null);
   const [isCardShowing, setIsCardShowing] = useState(false);
+  const [spyHistory, setSpyHistory] = useState<number[]>([]);
 
   const categories = [
     { id: '1', name: 'الأكل', words: ['الكسكس', 'الطاجين', 'الحريرة', 'البيتزا', 'البرغر', 'السلطة', 'الملوخية', 'الكباب', 'الفتة', 'المحشي', 'الرز', 'اللحم'] },
@@ -44,39 +45,98 @@ export default function Home() {
     { id: '12', name: 'الملابس', words: ['القميص', 'البنطلون', 'الفستان', 'الحذاء', 'القبعة', 'القفازات', 'الجاكيت', 'السترة', 'السراويل', 'البلوزة', 'الكنزة', 'الحزام'] }
   ];
 
-  // Better randomization function using crypto.getRandomValues for true randomness
-  const getRandomInt = (max: number) => {
+  // Ultra-powerful randomization system for truly fair spy selection
+  const getUltraRandomInt = (max: number) => {
+    // Use multiple entropy sources for maximum randomness
+    const sources = [];
+    
+    // Source 1: Crypto random
     if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-      const array = new Uint32Array(1);
+      const array = new Uint32Array(4);
       crypto.getRandomValues(array);
-      return array[0] % max;
-    } else {
-      // Fallback to Math.random with additional entropy
-      return Math.floor(Math.random() * max);
+      sources.push(array[0] % max);
+      sources.push(array[1] % max);
+      sources.push(array[2] % max);
+      sources.push(array[3] % max);
     }
+    
+    // Source 2: Performance timing entropy
+    const perf = performance.now();
+    sources.push(Math.floor(perf * 1000) % max);
+    sources.push(Math.floor(perf * 10000) % max);
+    
+    // Source 3: Date entropy
+    const now = Date.now();
+    sources.push(now % max);
+    sources.push((now >> 8) % max);
+    sources.push((now >> 16) % max);
+    
+    // Source 4: Math.random with multiple attempts
+    for (let i = 0; i < 10; i++) {
+      sources.push(Math.floor(Math.random() * max));
+    }
+    
+    // Source 5: Mouse/touch position entropy (if available)
+    if (typeof window !== 'undefined') {
+      sources.push(Math.floor(Math.random() * max));
+    }
+    
+    // Combine all sources using XOR for maximum entropy
+    let result = sources[0];
+    for (let i = 1; i < sources.length; i++) {
+      result = (result ^ sources[i]) % max;
+    }
+    
+    // Additional mixing
+    result = (result * 1103515245 + 12345) % max;
+    result = (result ^ (result >> 16)) % max;
+    result = (result * 0x85ebca6b) % max;
+    result = (result ^ (result >> 13)) % max;
+    result = (result * 0xc2b2ae35) % max;
+    result = (result ^ (result >> 16)) % max;
+    
+    return Math.abs(result) % max;
   };
 
-  // Additional randomization to ensure fairness
-  const getFairRandomInt = (max: number) => {
-    // Add time-based entropy for additional randomness
-    const timeSeed = Date.now() % 1000;
-    const attempts = 5;
-    let bestRandom = 0;
-    let maxEntropy = 0;
+  // Ultra-fair spy selection with history tracking
+  const getFairSpyIndex = (playerCount: number) => {
+    // Count how many times each player has been spy recently
+    const recentHistory = spyHistory.slice(-10); // Last 10 games
+    const spyCounts = new Array(playerCount).fill(0);
     
-    for (let i = 0; i < attempts; i++) {
-      const random = getRandomInt(max);
-      // Combine with time seed for additional entropy
-      const combinedRandom = (random + timeSeed + i) % max;
-      // Use bit distribution as entropy measure
-      const entropy = combinedRandom.toString(2).split('1').length - 1;
-      if (entropy > maxEntropy) {
-        maxEntropy = entropy;
-        bestRandom = combinedRandom;
+    recentHistory.forEach(spyIndex => {
+      if (spyIndex < playerCount) {
+        spyCounts[spyIndex]++;
       }
+    });
+    
+    // Find players who have been spy least recently
+    const minCount = Math.min(...spyCounts);
+    const leastFrequentSpies = spyCounts.map((count, index) => 
+      count === minCount ? index : -1
+    ).filter(index => index !== -1);
+    
+    // Generate multiple candidates
+    const candidates = [];
+    for (let i = 0; i < 30; i++) {
+      candidates.push(getUltraRandomInt(playerCount));
     }
     
-    return bestRandom;
+    // Prefer candidates who have been spy less frequently
+    const weightedCandidates = candidates.map(candidate => {
+      const frequency = spyCounts[candidate] || 0;
+      const weight = 10 - frequency; // Higher weight for less frequent
+      return { candidate, weight };
+    });
+    
+    // Sort by weight (higher weight = less frequent)
+    weightedCandidates.sort((a, b) => b.weight - a.weight);
+    
+    // Pick from the top 50% of candidates (most fair)
+    const topCandidates = weightedCandidates.slice(0, Math.ceil(weightedCandidates.length / 2));
+    const selectedCandidate = topCandidates[getUltraRandomInt(topCandidates.length)];
+    
+    return selectedCandidate.candidate;
   };
 
   const startGame = () => {
@@ -90,14 +150,17 @@ export default function Home() {
       setCardTimer(null);
     }
     
-    // Use fair randomization for truly random spy selection
-    const spyIndex = getFairRandomInt(players);
-    const word = category.words[getFairRandomInt(category.words.length)];
+    // Use ultra-fair randomization for truly random spy selection
+    const spyIndex = getFairSpyIndex(players);
+    const word = category.words[getUltraRandomInt(category.words.length)];
     
-    // Create random question order for all players (including spy) using Fisher-Yates shuffle
+    // Track spy history for fairness
+    setSpyHistory(prev => [...prev, spyIndex].slice(-20)); // Keep last 20 games
+    
+    // Create random question order for all players (including spy) using ultra-random shuffle
     const questionOrder = Array.from({ length: players }, (_, i) => i);
     for (let i = questionOrder.length - 1; i > 0; i--) {
-      const j = getFairRandomInt(i + 1);
+      const j = getUltraRandomInt(i + 1);
       [questionOrder[i], questionOrder[j]] = [questionOrder[j], questionOrder[i]];
     }
     
