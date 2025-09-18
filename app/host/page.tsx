@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { io, Socket } from 'socket.io-client';
+import { Socket } from 'socket.io-client';
 import Image from 'next/image';
-import { config } from '../config';
+import { getSocket } from '../lib/socketClient';
 
 interface Player {
   id: string;
@@ -41,8 +41,8 @@ export default function HostPage() {
 
   useEffect(() => {
     // Initialize socket connection
-    console.log('SOCKET_INIT serverUrl=', config.SERVER_URL, 'timestamp=', new Date().toISOString());
-    const newSocket = io(config.SERVER_URL);
+    console.log('SOCKET_USE site=HostPage time=', new Date().toISOString());
+    const newSocket = getSocket();
     setSocket(newSocket);
 
     // Socket event listeners
@@ -72,7 +72,12 @@ export default function HostPage() {
     });
 
     return () => {
-      newSocket.close();
+      // Don't close the singleton socket, just remove listeners
+      newSocket.off('connect');
+      newSocket.off('connect_error');
+      newSocket.off('room-created');
+      newSocket.off('players-updated');
+      newSocket.off('game-started');
     };
   }, [nickname, roomCode, router]);
 

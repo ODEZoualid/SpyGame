@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { io, Socket } from 'socket.io-client';
-import { config } from '../../config';
+import { Socket } from 'socket.io-client';
+import { getSocket } from '../../lib/socketClient';
 
 interface GameState {
   phase: 'card-flipping' | 'questions' | 'voting' | 'results';
@@ -45,8 +45,8 @@ export default function GamePage() {
     setRoomCode(code);
 
     // Initialize socket connection
-    console.log('SOCKET_INIT serverUrl=', config.SERVER_URL, 'timestamp=', new Date().toISOString());
-    const newSocket = io(config.SERVER_URL);
+    console.log('SOCKET_USE site=GamePage time=', new Date().toISOString());
+    const newSocket = getSocket();
     setSocket(newSocket);
 
     // Get player info from URL params or use a default
@@ -104,7 +104,14 @@ export default function GamePage() {
     });
 
     return () => {
-      newSocket.close();
+      // Don't close the singleton socket, just remove listeners
+      newSocket.off('game-started');
+      newSocket.off('players-updated');
+      newSocket.off('card-flipped');
+      newSocket.off('phase-changed');
+      newSocket.off('vote-recorded');
+      newSocket.off('voting-complete');
+      newSocket.off('join-error');
     };
   }, [params.roomCode, router]);
 

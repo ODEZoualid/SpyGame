@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { io, Socket } from 'socket.io-client';
-import { config } from '../../config';
+import { Socket } from 'socket.io-client';
+import { getSocket } from '../../lib/socketClient';
 
 export default function JoinWithCodePage() {
   const router = useRouter();
@@ -22,7 +22,8 @@ export default function JoinWithCodePage() {
     }
 
     // Initialize socket connection
-    const newSocket = io(config.SERVER_URL);
+    console.log('SOCKET_USE site=JoinWithCodePage time=', new Date().toISOString());
+    const newSocket = getSocket();
     setSocket(newSocket);
 
     // Socket event listeners
@@ -37,7 +38,9 @@ export default function JoinWithCodePage() {
     });
 
     return () => {
-      newSocket.close();
+      // Don't close the singleton socket, just remove listeners
+      newSocket.off('join-success');
+      newSocket.off('join-error');
     };
   }, [roomCode, router, params.code]);
 

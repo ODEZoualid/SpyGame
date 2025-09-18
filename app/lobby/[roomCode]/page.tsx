@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { io, Socket } from 'socket.io-client';
-import { config } from '../../config';
+import { Socket } from 'socket.io-client';
+import { getSocket } from '../../lib/socketClient';
 import Image from 'next/image';
 import QRCode from 'qrcode';
 
@@ -37,14 +37,20 @@ export default function LobbyPage() {
     setIsHost(isHostParam);
 
     // Initialize socket connection
-    console.log('SOCKET_INIT serverUrl=', config.SERVER_URL, 'timestamp=', new Date().toISOString());
-    const newSocket = io(config.SERVER_URL);
+    console.log('SOCKET_USE site=LobbyPage time=', new Date().toISOString());
+    const newSocket = getSocket();
     setSocket(newSocket);
 
-    // Don't join room again - just request current state
-    // Player should already be in room from join page
-    console.log('SOCKET_EMIT event=get-room-state roomCode=', code, 'timestamp=', new Date().toISOString());
-    newSocket.emit('get-room-state', { roomCode: code });
+    // Join the room to receive real-time updates
+    // This ensures the host and all players are properly in the room
+    const nickname = searchParams.get('nickname');
+    if (nickname) {
+      console.log('SOCKET_EMIT event=join-room roomCode=', code, 'nickname=', decodeURIComponent(nickname), 'timestamp=', new Date().toISOString());
+      newSocket.emit('join-room', { roomCode: code, nickname: decodeURIComponent(nickname) });
+    } else {
+      console.log('SOCKET_EMIT event=get-room-state roomCode=', code, 'timestamp=', new Date().toISOString());
+      newSocket.emit('get-room-state', { roomCode: code });
+    }
 
     // Socket event listeners
     newSocket.on('join-success', (data) => {
@@ -86,7 +92,12 @@ export default function LobbyPage() {
     });
 
     return () => {
-      newSocket.close();
+      // Don't close the singleton socket, just remove listeners
+      newSocket.off('join-success');
+      newSocket.off('players-updated');
+      newSocket.off('game-started');
+      newSocket.off('error');
+      newSocket.off('join-error');
     };
   }, [params.roomCode, searchParams, router]);
 

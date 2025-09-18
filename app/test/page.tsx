@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { io } from 'socket.io-client';
+import { getSocket } from '../lib/socketClient';
 import { config } from '../config';
 
 export default function TestPage() {
@@ -15,7 +15,8 @@ export default function TestPage() {
 
   useEffect(() => {
     addLog(`Attempting to connect to: ${config.SERVER_URL}`);
-    const newSocket = io(config.SERVER_URL);
+    console.log('SOCKET_USE site=TestPage time=', new Date().toISOString());
+    const newSocket = getSocket();
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
@@ -38,7 +39,11 @@ export default function TestPage() {
     });
 
     return () => {
-      newSocket.close();
+      // Don't close the singleton socket, just remove listeners
+      newSocket.off('connect');
+      newSocket.off('connect_error');
+      newSocket.off('disconnect');
+      newSocket.off('room-created');
     };
   }, []);
 
