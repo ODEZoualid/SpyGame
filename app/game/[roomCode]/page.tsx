@@ -45,19 +45,31 @@ export default function GamePage() {
     setRoomCode(code);
 
     // Initialize socket connection
+    console.log('SOCKET_INIT serverUrl=', config.SERVER_URL, 'timestamp=', new Date().toISOString());
     const newSocket = io(config.SERVER_URL);
     setSocket(newSocket);
 
+    // Get player info from URL params or use a default
+    const urlParams = new URLSearchParams(window.location.search);
+    const nickname = urlParams.get('nickname') || 'Player';
+    
+    // Join the room first
+    console.log('SOCKET_EMIT event=join-room roomCode=', code, 'nickname=', nickname, 'timestamp=', new Date().toISOString());
+    newSocket.emit('join-room', { roomCode: code, nickname });
+
     // Socket event listeners
     newSocket.on('game-started', (gameData) => {
+      console.log('SOCKET_EVENT_RECV event=game-started gameData=', gameData, 'timestamp=', new Date().toISOString());
       setGameState(gameData);
     });
 
     newSocket.on('players-updated', (updatedPlayers) => {
+      console.log('SOCKET_EVENT_RECV event=players-updated players=', updatedPlayers.length, 'timestamp=', new Date().toISOString());
       setPlayers(updatedPlayers);
     });
 
     newSocket.on('card-flipped', (data) => {
+      console.log('SOCKET_EVENT_RECV event=card-flipped data=', data, 'timestamp=', new Date().toISOString());
       setGameState(prev => prev ? {
         ...prev,
         cardsFlipped: data.cardsFlipped
@@ -65,6 +77,7 @@ export default function GamePage() {
     });
 
     newSocket.on('phase-changed', (data) => {
+      console.log('SOCKET_EVENT_RECV event=phase-changed data=', data, 'timestamp=', new Date().toISOString());
       setGameState(prev => prev ? {
         ...prev,
         phase: data.phase
@@ -72,10 +85,12 @@ export default function GamePage() {
     });
 
     newSocket.on('vote-recorded', (data) => {
+      console.log('SOCKET_EVENT_RECV event=vote-recorded data=', data, 'timestamp=', new Date().toISOString());
       // Handle vote recording
     });
 
     newSocket.on('voting-complete', (data) => {
+      console.log('SOCKET_EVENT_RECV event=voting-complete data=', data, 'timestamp=', new Date().toISOString());
       setGameState(prev => prev ? {
         ...prev,
         phase: 'results',
@@ -84,7 +99,7 @@ export default function GamePage() {
     });
 
     newSocket.on('join-error', (data) => {
-      console.error('Join error:', data.message);
+      console.error('SOCKET_EVENT_RECV event=join-error data=', data, 'timestamp=', new Date().toISOString());
       router.push('/join');
     });
 
@@ -95,6 +110,7 @@ export default function GamePage() {
 
   const flipCard = () => {
     if (socket && roomCode) {
+      console.log('SOCKET_EMIT event=flip-card roomCode=', roomCode, 'timestamp=', new Date().toISOString());
       setIsCardShowing(true);
       socket.emit('flip-card', { roomCode });
       
@@ -107,6 +123,7 @@ export default function GamePage() {
 
   const voteForPlayer = (votedPlayerId: string) => {
     if (socket && roomCode) {
+      console.log('SOCKET_EMIT event=vote roomCode=', roomCode, 'votedPlayerId=', votedPlayerId, 'timestamp=', new Date().toISOString());
       socket.emit('vote', { roomCode, votedPlayerId });
     }
   };

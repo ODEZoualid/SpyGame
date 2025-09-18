@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { config } from '../../config';
+import Image from 'next/image';
+import QRCode from 'qrcode';
 
 interface Player {
   id: string;
@@ -11,6 +13,7 @@ interface Player {
   isHost: boolean;
   hasVoted: boolean;
   cardFlipped: boolean;
+  isYou?: boolean;
 }
 
 export default function LobbyPage() {
@@ -22,6 +25,7 @@ export default function LobbyPage() {
   const [playerId, setPlayerId] = useState('');
   const [isHost, setIsHost] = useState(false);
   const [roomCode, setRoomCode] = useState('');
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const code = params.roomCode as string;
@@ -33,25 +37,51 @@ export default function LobbyPage() {
     setIsHost(isHostParam);
 
     // Initialize socket connection
+    console.log('SOCKET_INIT serverUrl=', config.SERVER_URL, 'timestamp=', new Date().toISOString());
     const newSocket = io(config.SERVER_URL);
     setSocket(newSocket);
 
-    // Join the room
-    if (code && playerIdParam) {
-      newSocket.emit('join-room', { roomCode: code, nickname: 'reconnect' });
-    }
+    // Don't join room again - just request current state
+    // Player should already be in room from join page
+    console.log('SOCKET_EMIT event=get-room-state roomCode=', code, 'timestamp=', new Date().toISOString());
+    newSocket.emit('get-room-state', { roomCode: code });
 
     // Socket event listeners
-    newSocket.on('players-updated', (updatedPlayers) => {
-      setPlayers(updatedPlayers);
+    newSocket.on('join-success', (data) => {
+      console.log('SOCKET_EVENT_RECV event=join-success data=', data, 'timestamp=', new Date().toISOString());
+      setPlayerId(data.playerId);
+      // Always update isHost from server response
+      setIsHost(data.isHost);
+      console.log('Host status from server:', data.isHost);
     });
 
-    newSocket.on('game-started', () => {
-      router.push(`/game/${code}`);
+    newSocket.on('players-updated', (updatedPlayers) => {
+      console.log('SOCKET_EVENT_RECV event=players-updated players=', updatedPlayers.length, 'timestamp=', new Date().toISOString());
+      console.log('Current playerId:', playerIdParam);
+      
+      // Mark which player is "you" based on playerId
+      const playersWithYou = updatedPlayers.map((player: any) => ({
+        ...player,
+        isYou: player.id === playerIdParam
+      }));
+      
+      console.log('Players with you marker:', playersWithYou);
+      setPlayers(playersWithYou);
+    });
+
+    newSocket.on('game-started', (gameState) => {
+      console.log('SOCKET_EVENT_RECV event=game-started gameState=', gameState, 'timestamp=', new Date().toISOString());
+      const nickname = searchParams.get('nickname') || 'Player';
+      router.push(`/game/${code}?nickname=${encodeURIComponent(nickname)}`);
+    });
+
+    newSocket.on('error', (data) => {
+      console.error('SOCKET_EVENT_RECV event=error data=', data, 'timestamp=', new Date().toISOString());
+      alert(`خطأ: ${data.message}`);
     });
 
     newSocket.on('join-error', (data) => {
-      console.error('Join error:', data.message);
+      console.error('SOCKET_EVENT_RECV event=join-error data=', data, 'timestamp=', new Date().toISOString());
       router.push('/join');
     });
 
@@ -60,8 +90,21 @@ export default function LobbyPage() {
     };
   }, [params.roomCode, searchParams, router]);
 
+  // Generate QR code when room code is available
+  useEffect(() => {
+    if (roomCode) {
+      const joinUrl = `https://spy-game-darija.vercel.app/join/${roomCode}`;
+      QRCode.toDataURL(joinUrl, { width: 200 }, (err, url) => {
+        if (!err) {
+          setQrCodeUrl(url);
+        }
+      });
+    }
+  }, [roomCode]);
+
   const startGame = () => {
     if (socket && roomCode) {
+      console.log('SOCKET_EMIT event=start-game roomCode=', roomCode, 'category=الأكل', 'players=', players.length, 'timestamp=', new Date().toISOString());
       socket.emit('start-game', { 
         roomCode, 
         category: 'الأكل', // Default category, could be made configurable
@@ -94,11 +137,47 @@ export default function LobbyPage() {
         {/* Room Code Display */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6 text-center">
           <h2 className="text-lg font-bold text-gray-700 mb-2">رمز الغرفة</h2>
-          <div className="text-4xl font-bold text-blue-600 mb-2">
+          <div className="text-4xl font-bold text-blue-600 mb-4">
             {roomCode}
           </div>
+          
+          {/* QR Code */}
+          {qrCodeUrl && (
+            <div className="mb-4">
+              <Image
+                src={qrCodeUrl}
+                alt="QR Code"
+                width={150}
+                height={150}
+                className="mx-auto"
+              />
+            </div>
+          )}
+          
+          {/* Share Link */}
+          <div className="bg-gray-50 rounded-lg p-3 mb-4">
+            <p className="text-sm text-gray-600 mb-2">رابط الانضمام:</p>
+            <div className="flex items-center">
+              <input
+                type="text"
+                value={`https://spy-game-darija.vercel.app/join/${roomCode}`}
+                readOnly
+                className="flex-1 text-xs bg-white border border-gray-200 rounded px-2 py-1 mr-2"
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`https://spy-game-darija.vercel.app/join/${roomCode}`);
+                  alert('تم نسخ الرابط!');
+                }}
+                className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+              >
+                نسخ
+              </button>
+            </div>
+          </div>
+          
           <p className="text-sm text-gray-600">
-            شارك هذا الرمز مع اللاعبين الآخرين
+            شارك هذا الرمز أو الرابط مع اللاعبين الآخرين
           </p>
         </div>
 
@@ -112,7 +191,7 @@ export default function LobbyPage() {
               <div
                 key={player.id}
                 className={`flex items-center justify-between p-3 rounded-lg ${
-                  player.id === playerId 
+                  player.isYou 
                     ? 'bg-blue-50 border border-blue-200' 
                     : 'bg-gray-50'
                 }`}
@@ -128,7 +207,7 @@ export default function LobbyPage() {
                     {player.isHost && (
                       <span className="text-purple-600 text-sm mr-2">(المضيف)</span>
                     )}
-                    {player.id === playerId && (
+                    {player.isYou && (
                       <span className="text-blue-600 text-sm mr-2">(أنت)</span>
                     )}
                   </span>
@@ -137,6 +216,11 @@ export default function LobbyPage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Debug Info */}
+        <div className="bg-gray-100 p-2 text-xs text-gray-600 mb-4">
+          Debug: isHost={isHost.toString()}, playerId={playerId}, players={players.length}
         </div>
 
         {/* Host Controls */}

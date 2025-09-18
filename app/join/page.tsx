@@ -22,16 +22,19 @@ export default function JoinPage() {
     }
 
     // Initialize socket connection
+    console.log('SOCKET_INIT serverUrl=', config.SERVER_URL, 'timestamp=', new Date().toISOString());
     const newSocket = io(config.SERVER_URL);
     setSocket(newSocket);
 
     // Socket event listeners
     newSocket.on('join-success', (data) => {
+      console.log('SOCKET_EVENT_RECV event=join-success data=', data, 'timestamp=', new Date().toISOString());
       setIsJoining(false);
-      router.push(`/lobby/${roomCode}?playerId=${data.playerId}&isHost=${data.isHost}`);
+      router.push(`/lobby/${roomCode}?playerId=${data.playerId}&isHost=${data.isHost}&nickname=${encodeURIComponent(nickname)}`);
     });
 
     newSocket.on('join-error', (data) => {
+      console.log('SOCKET_EVENT_RECV event=join-error data=', data, 'timestamp=', new Date().toISOString());
       setError(data.message);
       setIsJoining(false);
     });
@@ -48,6 +51,7 @@ export default function JoinPage() {
     setIsJoining(true);
     
     if (socket) {
+      console.log('SOCKET_EMIT event=join-room roomCode=', roomCode.trim(), 'nickname=', nickname.trim(), 'timestamp=', new Date().toISOString());
       socket.emit('join-room', { 
         roomCode: roomCode.trim(), 
         nickname: nickname.trim() 

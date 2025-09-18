@@ -41,20 +41,32 @@ export default function HostPage() {
 
   useEffect(() => {
     // Initialize socket connection
+    console.log('SOCKET_INIT serverUrl=', config.SERVER_URL, 'timestamp=', new Date().toISOString());
     const newSocket = io(config.SERVER_URL);
     setSocket(newSocket);
 
     // Socket event listeners
+    newSocket.on('connect', () => {
+      console.log('SOCKET_CONNECT timestamp=', new Date().toISOString());
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('SOCKET_CONNECT_ERROR error=', error, 'timestamp=', new Date().toISOString());
+    });
+
     newSocket.on('room-created', (data) => {
-      setRoomCode(data.roomCode);
-      setPlayers([{ id: data.playerId, nickname, isHost: true, hasVoted: false, cardFlipped: false }]);
+      console.log('SOCKET_EVENT_RECV event=room-created data=', data, 'timestamp=', new Date().toISOString());
+      // Immediately redirect host to lobby page without showing interface
+      router.push(`/lobby/${data.roomCode}?playerId=${data.playerId}&isHost=true&nickname=${encodeURIComponent(nickname)}`);
     });
 
     newSocket.on('players-updated', (updatedPlayers) => {
+      console.log('SOCKET_EVENT_RECV event=players-updated players=', updatedPlayers.length, 'timestamp=', new Date().toISOString());
       setPlayers(updatedPlayers);
     });
 
     newSocket.on('game-started', () => {
+      console.log('SOCKET_EVENT_RECV event=game-started timestamp=', new Date().toISOString());
       setGameStarted(true);
       router.push(`/game/${roomCode}`);
     });
@@ -79,12 +91,16 @@ export default function HostPage() {
   const createRoom = () => {
     if (!nickname.trim()) return;
     if (socket) {
+      console.log('SOCKET_EMIT event=create-room nickname=', nickname.trim(), 'timestamp=', new Date().toISOString());
       socket.emit('create-room', { nickname: nickname.trim() });
+    } else {
+      console.error('Socket not connected');
     }
   };
 
   const startGame = () => {
     if (socket && roomCode) {
+      console.log('SOCKET_EMIT event=start-game roomCode=', roomCode, 'category=', selectedCategory, 'players=', players.length, 'timestamp=', new Date().toISOString());
       socket.emit('start-game', { 
         roomCode, 
         category: selectedCategory,
