@@ -47,39 +47,38 @@ export default function Home() {
 
   // Ultra-powerful randomization system for truly fair spy selection
   const getUltraRandomInt = (max: number) => {
-    // Use multiple entropy sources for maximum randomness
-    const sources = [];
-    
-    // Source 1: Crypto random
+    // Use crypto.getRandomValues as primary source if available
     if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-      const array = new Uint32Array(4);
+      const array = new Uint32Array(1);
       crypto.getRandomValues(array);
-      sources.push(array[0] % max);
-      sources.push(array[1] % max);
-      sources.push(array[2] % max);
-      sources.push(array[3] % max);
+      return array[0] % max;
     }
     
-    // Source 2: Performance timing entropy
+    // Fallback to enhanced Math.random with multiple entropy sources
+    const sources = [];
+    
+    // Source 1: Performance timing entropy
     const perf = performance.now();
     sources.push(Math.floor(perf * 1000) % max);
     sources.push(Math.floor(perf * 10000) % max);
+    sources.push(Math.floor(perf * 100000) % max);
     
-    // Source 3: Date entropy
+    // Source 2: Date entropy
     const now = Date.now();
     sources.push(now % max);
     sources.push((now >> 8) % max);
     sources.push((now >> 16) % max);
+    sources.push((now >> 24) % max);
     
-    // Source 4: Math.random with multiple attempts
-    for (let i = 0; i < 10; i++) {
+    // Source 3: Math.random with multiple attempts
+    for (let i = 0; i < 20; i++) {
       sources.push(Math.floor(Math.random() * max));
     }
     
-    // Source 5: Mouse/touch position entropy (if available)
-    if (typeof window !== 'undefined') {
-      sources.push(Math.floor(Math.random() * max));
-    }
+    // Source 4: Additional entropy from Date.now() with different shifts
+    const dateEntropy = Date.now();
+    sources.push((dateEntropy * 1103515245 + 12345) % max);
+    sources.push((dateEntropy * 1664525 + 1013904223) % max);
     
     // Combine all sources using XOR for maximum entropy
     let result = sources[0];
@@ -87,7 +86,7 @@ export default function Home() {
       result = (result ^ sources[i]) % max;
     }
     
-    // Additional mixing
+    // Additional mixing for extra randomness
     result = (result * 1103515245 + 12345) % max;
     result = (result ^ (result >> 16)) % max;
     result = (result * 0x85ebca6b) % max;
@@ -100,8 +99,13 @@ export default function Home() {
 
   // Ultra-fair spy selection with history tracking
   const getFairSpyIndex = (playerCount: number) => {
+    // If no history, use pure random
+    if (spyHistory.length === 0) {
+      return getUltraRandomInt(playerCount);
+    }
+    
     // Count how many times each player has been spy recently
-    const recentHistory = spyHistory.slice(-10); // Last 10 games
+    const recentHistory = spyHistory.slice(-20); // Last 20 games
     const spyCounts = new Array(playerCount).fill(0);
     
     recentHistory.forEach(spyIndex => {
@@ -110,33 +114,24 @@ export default function Home() {
       }
     });
     
-    // Find players who have been spy least recently
+    // Find the minimum count (least frequent)
     const minCount = Math.min(...spyCounts);
-    const leastFrequentSpies = spyCounts.map((count, index) => 
-      count === minCount ? index : -1
-    ).filter(index => index !== -1);
     
-    // Generate multiple candidates
-    const candidates = [];
-    for (let i = 0; i < 30; i++) {
-      candidates.push(getUltraRandomInt(playerCount));
+    // Get all players who have been spy the least
+    const leastFrequentPlayers = [];
+    for (let i = 0; i < playerCount; i++) {
+      if (spyCounts[i] === minCount) {
+        leastFrequentPlayers.push(i);
+      }
     }
     
-    // Prefer candidates who have been spy less frequently
-    const weightedCandidates = candidates.map(candidate => {
-      const frequency = spyCounts[candidate] || 0;
-      const weight = 10 - frequency; // Higher weight for less frequent
-      return { candidate, weight };
-    });
+    // If all players have been spy equally, use pure random
+    if (leastFrequentPlayers.length === playerCount) {
+      return getUltraRandomInt(playerCount);
+    }
     
-    // Sort by weight (higher weight = less frequent)
-    weightedCandidates.sort((a, b) => b.weight - a.weight);
-    
-    // Pick from the top 50% of candidates (most fair)
-    const topCandidates = weightedCandidates.slice(0, Math.ceil(weightedCandidates.length / 2));
-    const selectedCandidate = topCandidates[getUltraRandomInt(topCandidates.length)];
-    
-    return selectedCandidate.candidate;
+    // Otherwise, randomly select from the least frequent players
+    return leastFrequentPlayers[getUltraRandomInt(leastFrequentPlayers.length)];
   };
 
   const startGame = () => {
