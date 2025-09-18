@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface GameState {
   players: number;
@@ -19,6 +20,7 @@ interface GameState {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [currentScreen, setCurrentScreen] = useState('home');
   const [players, setPlayers] = useState(4);
   const [selectedCategory, setSelectedCategory] = useState('الأكل');
@@ -809,14 +811,21 @@ export default function Home() {
             onClick={() => setCurrentScreen('create')}
             className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
           >
-            🎮 بدا لعبة
+            🎮 بدا لعبة (واحد)
           </button>
           
           <button
-            onClick={() => alert('الفئات - قريباً!')}
-            className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-6 rounded-lg transition-colors duration-200 w-full text-lg py-4"
+            onClick={() => router.push('/host')}
+            className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
           >
-            📂 الفئات
+            🏠 إنشاء غرفة (متعدد)
+          </button>
+          
+          <button
+            onClick={() => router.push('/join')}
+            className="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg py-4"
+          >
+            🚪 انضم للعبة
           </button>
           
           <button
