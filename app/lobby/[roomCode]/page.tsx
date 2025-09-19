@@ -41,10 +41,15 @@ export default function LobbyPage() {
     const newSocket = getSocket();
     setSocket(newSocket);
 
-    // Join the room to receive real-time updates
-    // This ensures the host and all players are properly in the room
+    // For hosts, just request room state (they're already in the room)
+    // For players, join the room
+    const isHost = searchParams.get('isHost') === 'true';
     const nickname = searchParams.get('nickname');
-    if (nickname) {
+    
+    if (isHost) {
+      console.log('SOCKET_EMIT event=get-room-state roomCode=', code, 'isHost=true timestamp=', new Date().toISOString());
+      newSocket.emit('get-room-state', { roomCode: code });
+    } else if (nickname) {
       console.log('SOCKET_EMIT event=join-room roomCode=', code, 'nickname=', decodeURIComponent(nickname), 'timestamp=', new Date().toISOString());
       newSocket.emit('join-room', { roomCode: code, nickname: decodeURIComponent(nickname) });
     } else {
@@ -56,9 +61,14 @@ export default function LobbyPage() {
     newSocket.on('join-success', (data) => {
       console.log('SOCKET_EVENT_RECV event=join-success data=', data, 'timestamp=', new Date().toISOString());
       setPlayerId(data.playerId);
-      // Always update isHost from server response
-      setIsHost(data.isHost);
-      console.log('Host status from server:', data.isHost);
+      // For hosts, preserve their host status from URL params
+      // For players, use server response
+      if (!isHost) {
+        setIsHost(data.isHost);
+        console.log('Player host status from server:', data.isHost);
+      } else {
+        console.log('Host status preserved from URL params:', isHost);
+      }
     });
 
     newSocket.on('players-updated', (updatedPlayers) => {
