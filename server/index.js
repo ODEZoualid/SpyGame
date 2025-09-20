@@ -251,12 +251,77 @@ io.on('connection', (socket) => {
       const playerGameData = {
         ...room.gameData,
         playerIndex: player.playerIndex,
-        isSpy: player.playerIndex === spyIndex
+        isSpy: player.playerIndex === spyIndex,
+        currentCardFlipper: 0,
+        cardsFlipped: 0,
+        timeRemaining: 300
       };
       io.to(player.socketId).emit('game-started', playerGameData);
     });
     
     console.log(`Game started in room ${roomCode}`);
+  });
+
+  // Handle card flip
+  socket.on('card-flipped', (data) => {
+    const { roomCode } = data;
+    const room = rooms.get(roomCode);
+    if (!room || !room.gameStarted) return;
+
+    // Update game state
+    room.gameData.cardsFlipped = (room.gameData.cardsFlipped || 0) + 1;
+    room.gameData.currentCardFlipper = (room.gameData.currentCardFlipper || 0) + 1;
+
+    // Check if all players have flipped
+    if (room.gameData.cardsFlipped >= room.players.size) {
+      // All players have flipped, start questions phase
+      room.gameData.phase = 'questions';
+      room.gameData.timeRemaining = 300; // 5 minutes
+      
+      // Start timer
+      const timerInterval = setInterval(() => {
+        room.gameData.timeRemaining -= 1;
+        
+        // Broadcast timer update to all players
+        io.to(roomCode).emit('timer-update', { timeLeft: room.gameData.timeRemaining });
+        
+        if (room.gameData.timeRemaining <= 0) {
+          clearInterval(timerInterval);
+          room.gameData.phase = 'voting';
+          io.to(roomCode).emit('phase-changed', { phase: 'voting' });
+        }
+      }, 1000);
+      
+      // Store timer interval in room for cleanup
+      room.timerInterval = timerInterval;
+      
+      // Broadcast phase change
+      io.to(roomCode).emit('phase-changed', { phase: 'questions' });
+    } else {
+      // More players need to flip, update current card flipper
+      io.to(roomCode).emit('card-flip-update', {
+        currentCardFlipper: room.gameData.currentCardFlipper,
+        cardsFlipped: room.gameData.cardsFlipped,
+        totalPlayers: room.players.size
+      });
+    }
+  });
+
+  // Handle manual phase change (skip to voting)
+  socket.on('change-phase', (data) => {
+    const { roomCode, phase } = data;
+    const room = rooms.get(roomCode);
+    if (!room || !room.gameStarted) return;
+
+    room.gameData.phase = phase;
+    
+    // Clear timer if switching to voting
+    if (phase === 'voting' && room.timerInterval) {
+      clearInterval(room.timerInterval);
+      room.timerInterval = null;
+    }
+    
+    io.to(roomCode).emit('phase-changed', { phase });
   });
 });
 

@@ -58,6 +58,14 @@ export default function GamePage() {
       setGameState(prev => prev ? { ...prev, timeRemaining: data.timeLeft } : null);
     });
 
+    newSocket.on('card-flip-update', (data: any) => {
+      setGameState(prev => prev ? {
+        ...prev,
+        currentCardFlipper: data.currentCardFlipper,
+        cardsFlipped: data.cardsFlipped
+      } : null);
+    });
+
     newSocket.on('error', (error: any) => {
       console.error('SOCKET_ERROR error=', error);
       alert(`خطأ: ${error.message}`);
@@ -92,6 +100,7 @@ export default function GamePage() {
       newSocket.off('game-started');
       newSocket.off('phase-changed');
       newSocket.off('timer-update');
+      newSocket.off('card-flip-update');
       newSocket.off('error');
     };
   }, [roomCode]);
@@ -99,34 +108,14 @@ export default function GamePage() {
   const flipCard = () => {
     setIsCardShowing(true);
     
-    // Show card for 3 seconds, then move to next player or start questions
+    // Notify server that this player flipped their card
+    if (socket && roomCode) {
+      socket.emit('card-flipped', { roomCode });
+    }
+    
+    // Show card for 3 seconds, then hide it
     setTimeout(() => {
       setIsCardShowing(false);
-      
-      setGameState(prev => {
-        if (!prev) return prev;
-        
-        const nextCardFlipper = (prev.currentCardFlipper || 0) + 1;
-        const newCardsFlipped = (prev.cardsFlipped || 0) + 1;
-        
-        if (nextCardFlipper < prev.playersCount) {
-          // More players need to flip
-          return {
-            ...prev,
-            currentCardFlipper: nextCardFlipper,
-            cardsFlipped: newCardsFlipped
-          };
-        } else {
-          // All players have flipped, start questions phase
-          startTimer();
-          return {
-            ...prev,
-            phase: 'questions',
-            cardsFlipped: newCardsFlipped,
-            currentCardFlipper: 0
-          };
-        }
-      });
     }, 3000);
   };
 
@@ -199,10 +188,13 @@ export default function GamePage() {
           <>
             <div className="text-center mb-8">
               <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                {isCardShowing ? `دور اللاعب ${(gameState.currentCardFlipper || 0) + 1}` : 'قلب البطاقة'}
+                {isCardShowing ? `دورك الآن!` : `دور اللاعب ${(gameState.currentCardFlipper || 0) + 1}`}
               </h1>
               <p className="text-gray-600 mb-4">
-                {isCardShowing ? 'شوف بطاقتك و اقلبها للاعب الجاي' : `اللاعب ${(gameState.currentCardFlipper || 0) + 1} يقلب البطاقة`}
+                {isCardShowing ? 'شوف بطاقتك و اقلبها للاعب الجاي' : 
+                 (gameState.playerIndex === gameState.currentCardFlipper ? 
+                   'دورك لقلب البطاقة' : 
+                   `انتظر دور اللاعب ${(gameState.currentCardFlipper || 0) + 1}`)}
               </p>
               <p className="text-sm text-gray-500">
                 {gameState.cardsFlipped || 0} من {gameState.playersCount} شافوا البطاقة
@@ -258,7 +250,7 @@ export default function GamePage() {
               </div>
             </div>
 
-            {!isCardShowing && (
+            {!isCardShowing && gameState.playerIndex === gameState.currentCardFlipper && (
               <button
                 onClick={flipCard}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl text-lg transition-colors duration-200"
@@ -296,13 +288,21 @@ export default function GamePage() {
                 
                 <div className="grid grid-cols-2 gap-4">
                   <button
-                    onClick={() => setGameState(prev => prev ? { ...prev, phase: 'voting' } : null)}
+                    onClick={() => {
+                      if (socket && roomCode) {
+                        socket.emit('change-phase', { roomCode, phase: 'voting' });
+                      }
+                    }}
                     className="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-xl transition-colors duration-200"
                   >
                     🗳️ التصويت الآن
                   </button>
                   <button
-                    onClick={() => setGameState(prev => prev ? { ...prev, phase: 'results' } : null)}
+                    onClick={() => {
+                      if (socket && roomCode) {
+                        socket.emit('change-phase', { roomCode, phase: 'results' });
+                      }
+                    }}
                     className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl transition-colors duration-200"
                   >
                     🏆 النتائج

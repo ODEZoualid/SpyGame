@@ -49,57 +49,63 @@ export default function JoinPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-md mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">انضم للعبة</h1>
-          <p className="text-gray-600">ادخل كود الغرفة واسمك للانضمام</p>
-        </div>
-
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              كود الغرفة
-            </label>
-            <input
-              type="text"
-              value={roomCode}
-              onChange={(e) => setRoomCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="123456"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-center text-2xl font-mono"
-              maxLength={6}
-            />
+    <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
+      <div className="w-full max-w-md">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">🎮 انضم للعبة</h1>
+            <p className="text-gray-600">ادخل كود الغرفة واسمك للانضمام</p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              اسمك
-            </label>
-            <input
-              type="text"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder="ادخل اسمك"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              maxLength={20}
-            />
-          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                كود الغرفة
+              </label>
+              <input
+                type="text"
+                value={roomCode}
+                onChange={(e) => setRoomCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="123456"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-center text-2xl font-mono"
+                maxLength={6}
+              />
+            </div>
 
-          <button
-            onClick={joinRoom}
-            disabled={isJoining || !roomCode.trim() || !nickname.trim()}
-            className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm w-full text-lg"
-          >
-            {isJoining ? 'جاري الانضمام...' : 'انضم للعبة'}
-          </button>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                اسمك
+              </label>
+              <input
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="ادخل اسمك"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                maxLength={20}
+              />
+            </div>
 
-          <div className="text-center">
             <button
-              onClick={() => router.push('/')}
-              className="text-gray-500 hover:text-gray-700 text-sm"
+              onClick={joinRoom}
+              disabled={isJoining || !roomCode.trim() || !nickname.trim()}
+              className={`w-full py-3 px-6 rounded-lg font-medium transition-colors duration-200 ${
+                isJoining || !roomCode.trim() || !nickname.trim()
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-green-600 hover:bg-green-700 text-white'
+              }`}
             >
-              ← العودة للرئيسية
+              {isJoining ? 'جاري الانضمام...' : 'انضم للعبة'}
             </button>
+
+            <div className="text-center">
+              <button
+                onClick={() => router.push('/')}
+                className="text-gray-500 hover:text-gray-700 text-sm"
+              >
+                ← العودة للرئيسية
+              </button>
+            </div>
           </div>
         </div>
       </div>
