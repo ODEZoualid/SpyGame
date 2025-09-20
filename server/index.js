@@ -259,9 +259,9 @@ io.on('connection', (socket) => {
       io.to(player.socketId).emit('game-started', playerGameData);
     });
     
-    console.log(`Game started in room ${roomCode} with spy at index ${spyIndex}, word: ${randomWord}`);
-    console.log(`Players: ${playersArray.map(p => `${p.name}(${p.playerIndex})`).join(', ')}`);
-    console.log(`Spy is player: ${playersArray[spyIndex]?.name} (index ${spyIndex})`);
+    console.log(`🎮 Game started in room ${roomCode} with spy at index ${spyIndex}, word: ${randomWord}`);
+    console.log(`👥 Players: ${playersArray.map(p => `${p.name}(${p.playerIndex})`).join(', ')}`);
+    console.log(`🕵️ Spy is player: ${playersArray[spyIndex]?.name} (index ${spyIndex})`);
   });
 
   // Handle card flip
