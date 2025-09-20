@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { getSocket } from '../../../lib/socketClient';
+import { getSocket } from '../../lib/socketClient';
 
 interface Player {
   id: string;
