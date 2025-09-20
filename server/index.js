@@ -13,7 +13,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 // CORS configuration for production
 const corsOptions = {
   origin: NODE_ENV === 'production' 
-    ? ['https://spy-game-darija-etvy7nzvt-vievimie-3261s-projects.vercel.app']
+    ? ['https://spy-game-darija-etvy7nzvt-vievimie-3261s-projects.vercel.app', 'https://spy-game-darija.vercel.app']
     : ['http://localhost:3000', 'http://localhost:3001'],
   methods: ['GET', 'POST'],
   credentials: true
@@ -23,7 +23,10 @@ app.use(cors(corsOptions));
 
 // Socket.IO configuration
 const io = socketIo(server, {
-  cors: corsOptions,
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  },
   transports: ['websocket', 'polling'],
   allowEIO3: true
 });
