@@ -183,7 +183,17 @@ io.on('connection', (socket) => {
         
         // If game has started, send player-specific game data
         if (room.gameStarted && room.gameData) {
-          console.log(`Sending existing game data for ${roomCode} to player ${player.name}`);
+          console.log(`🔍 DEBUG: Sending existing game data for ${roomCode} to player ${player.name}`);
+          console.log(`🔍 DEBUG: player.playerIndex=${player.playerIndex}, room.gameData.spyIndex=${room.gameData.spyIndex}`);
+          
+          // Ensure playerIndex is set (fallback to finding index in array)
+          if (player.playerIndex === undefined) {
+            const playersArray = Array.from(room.players.values());
+            const playerIndex = playersArray.findIndex(p => p.id === player.id);
+            player.playerIndex = playerIndex >= 0 ? playerIndex : 0;
+            console.log(`🔍 DEBUG: Set playerIndex to ${player.playerIndex} for player ${player.name}`);
+          }
+          
           const playerGameData = {
             ...room.gameData,
             playerIndex: player.playerIndex,
@@ -192,7 +202,7 @@ io.on('connection', (socket) => {
             cardsFlipped: room.gameData.cardsFlipped || 0,
             timeRemaining: room.gameData.timeRemaining || 300
           };
-          console.log(`Player ${player.name} data: playerIndex=${playerGameData.playerIndex}, isSpy=${playerGameData.isSpy}`);
+          console.log(`🔍 DEBUG: Final playerGameData for ${player.name}:`, playerGameData);
           socket.emit('game-started', playerGameData);
         }
         
