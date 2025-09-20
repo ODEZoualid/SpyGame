@@ -181,10 +181,19 @@ io.on('connection', (socket) => {
         socket.emit('join-success', { playerId: player.id, isHost: player.isHost });
         broadcastPlayers(roomCode);
         
-        // If game has started, send game data
+        // If game has started, send player-specific game data
         if (room.gameStarted && room.gameData) {
-          console.log(`Sending existing game data for ${roomCode}`);
-          socket.emit('game-started', room.gameData);
+          console.log(`Sending existing game data for ${roomCode} to player ${player.name}`);
+          const playerGameData = {
+            ...room.gameData,
+            playerIndex: player.playerIndex,
+            isSpy: player.playerIndex === room.gameData.spyIndex,
+            currentCardFlipper: room.gameData.currentCardFlipper || 0,
+            cardsFlipped: room.gameData.cardsFlipped || 0,
+            timeRemaining: room.gameData.timeRemaining || 300
+          };
+          console.log(`Player ${player.name} data: playerIndex=${playerGameData.playerIndex}, isSpy=${playerGameData.isSpy}`);
+          socket.emit('game-started', playerGameData);
         }
         
         console.log(`Room state sent for ${roomCode}`);
