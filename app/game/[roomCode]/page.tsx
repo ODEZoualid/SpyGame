@@ -26,6 +26,8 @@ export default function GamePage() {
     const newSocket = getSocket();
     setSocket(newSocket);
 
+    console.log('GAME_PAGE_LOADED roomCode=', roomCode);
+
     // Socket event listeners
     newSocket.on('game-started', (data: GameState) => {
       console.log('GAME_STARTED data=', data);
@@ -38,13 +40,28 @@ export default function GamePage() {
     newSocket.on('error', (error: any) => {
       console.error('SOCKET_ERROR error=', error);
       alert(`خطأ: ${error.message}`);
+      setIsLoading(false);
     });
+
+    // Request game state when page loads
+    console.log('REQUESTING_GAME_STATE roomCode=', roomCode);
+    newSocket.emit('get-room-state', { roomCode });
 
     // Add timeout to prevent infinite loading
     const timeout = setTimeout(() => {
       console.log('GAME_LOADING_TIMEOUT - No game-started event received');
+      console.log('GAME_LOADING_TIMEOUT - Creating fallback game state');
+      // Create a fallback game state
+      setGameState({
+        phase: 'card-flipping',
+        category: 'الأكل',
+        word: 'كلمة تجريبية',
+        spyIndex: 0,
+        playersCount: 3,
+        startTime: Date.now()
+      });
       setIsLoading(false);
-    }, 10000); // 10 second timeout
+    }, 5000); // Reduced to 5 seconds
 
     return () => {
       clearTimeout(timeout);

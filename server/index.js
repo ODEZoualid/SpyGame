@@ -180,6 +180,13 @@ io.on('connection', (socket) => {
       if (player) {
         socket.emit('join-success', { playerId: player.id, isHost: player.isHost });
         broadcastPlayers(roomCode);
+        
+        // If game has started, send game data
+        if (room.gameStarted && room.gameData) {
+          console.log(`Sending existing game data for ${roomCode}`);
+          socket.emit('game-started', room.gameData);
+        }
+        
         console.log(`Room state sent for ${roomCode}`);
       } else {
         socket.emit('join-error', { message: 'Player not found in room' });
