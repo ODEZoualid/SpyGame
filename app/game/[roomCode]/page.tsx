@@ -39,7 +39,8 @@ export default function GamePage() {
 
     // Socket event listeners
     newSocket.on('game-started', (data: GameState) => {
-      console.log('GAME_STARTED data=', data);
+      console.log('🎮 Frontend: GAME_STARTED data=', data);
+      console.log('🎮 Frontend: isSpy=', data.isSpy, 'playerIndex=', data.playerIndex, 'word=', data.word);
       setGameState({
         ...data,
         currentCardFlipper: 0,
@@ -106,11 +107,15 @@ export default function GamePage() {
   }, [roomCode]);
 
   const flipCard = () => {
+    console.log('🃏 Frontend: flipCard called, socket:', !!socket, 'roomCode:', roomCode);
     setIsCardShowing(true);
     
     // Notify server that this player flipped their card
     if (socket && roomCode) {
+      console.log('🃏 Frontend: Sending card-flipped event to server');
       socket.emit('card-flipped', { roomCode });
+    } else {
+      console.log('❌ Frontend: Cannot send card-flipped event - socket:', !!socket, 'roomCode:', roomCode);
     }
     
     // Show card for 3 seconds, then hide it
