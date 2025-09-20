@@ -207,7 +207,7 @@ export default function GamePage() {
                 {gameState.cardsFlipped || 0} من {gameState.playersCount} شافوا البطاقة
               </p>
               <p className="text-xs text-gray-400 mt-2">
-                أنت اللاعب {gameState.playerIndex + 1} من {gameState.playersCount}
+                أنت اللاعب {(gameState.playerIndex || 0) + 1} من {gameState.playersCount}
               </p>
               {isCardShowing && (
                 <p className="text-sm text-orange-500 mt-2">
