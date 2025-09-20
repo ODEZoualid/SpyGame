@@ -299,30 +299,45 @@ io.on('connection', (socket) => {
 
     // Check if all players have flipped
     if (room.gameData.cardsFlipped >= room.players.size) {
-      console.log(`🎉 All players have flipped! Moving to questions phase in room ${roomCode}`);
-      // All players have flipped, start questions phase
-      room.gameData.phase = 'questions';
-      room.gameData.timeRemaining = 300; // 5 minutes
+      console.log(`🎉 All players have flipped! Starting countdown to questions phase in room ${roomCode}`);
       
-      // Start timer
-      const timerInterval = setInterval(() => {
-        room.gameData.timeRemaining -= 1;
+      // Send countdown to all players
+      io.to(roomCode).emit('countdown-start', { message: 'مرحلة الأسئلة تبدأ خلال' });
+      
+      // 3-second countdown before questions phase
+      let countdown = 3;
+      const countdownInterval = setInterval(() => {
+        io.to(roomCode).emit('countdown-update', { count: countdown });
+        countdown--;
         
-        // Broadcast timer update to all players
-        io.to(roomCode).emit('timer-update', { timeLeft: room.gameData.timeRemaining });
-        
-        if (room.gameData.timeRemaining <= 0) {
-          clearInterval(timerInterval);
-          room.gameData.phase = 'voting';
-          io.to(roomCode).emit('phase-changed', { phase: 'voting' });
+        if (countdown < 0) {
+          clearInterval(countdownInterval);
+          
+          // Start questions phase
+          room.gameData.phase = 'questions';
+          room.gameData.timeRemaining = 300; // 5 minutes
+          
+          // Start timer
+          const timerInterval = setInterval(() => {
+            room.gameData.timeRemaining -= 1;
+            
+            // Broadcast timer update to all players
+            io.to(roomCode).emit('timer-update', { timeLeft: room.gameData.timeRemaining });
+            
+            if (room.gameData.timeRemaining <= 0) {
+              clearInterval(timerInterval);
+              room.gameData.phase = 'voting';
+              io.to(roomCode).emit('phase-changed', { phase: 'voting' });
+            }
+          }, 1000);
+          
+          // Store timer interval in room for cleanup
+          room.timerInterval = timerInterval;
+          
+          // Broadcast phase change to ALL players
+          io.to(roomCode).emit('phase-changed', { phase: 'questions' });
         }
       }, 1000);
-      
-      // Store timer interval in room for cleanup
-      room.timerInterval = timerInterval;
-      
-      // Broadcast phase change to ALL players
-      io.to(roomCode).emit('phase-changed', { phase: 'questions' });
     }
   });
 
