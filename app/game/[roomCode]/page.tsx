@@ -16,6 +16,8 @@ interface GameState {
   currentCardFlipper?: number;
   cardsFlipped?: number;
   timeRemaining?: number;
+  countdownMessage?: string;
+  countdown?: number;
 }
 
 export default function GamePage() {
@@ -41,11 +43,14 @@ export default function GamePage() {
     newSocket.on('game-started', (data: GameState) => {
       console.log('🎮 Frontend: GAME_STARTED data=', data);
       console.log('🎮 Frontend: isSpy=', data.isSpy, 'playerIndex=', data.playerIndex, 'word=', data.word);
+      console.log('🎮 Frontend: currentCardFlipper=', data.currentCardFlipper, 'cardsFlipped=', data.cardsFlipped);
+      console.log('🎮 Frontend: playersCount=', data.playersCount);
+      
       setGameState({
         ...data,
-        currentCardFlipper: 0,
-        cardsFlipped: 0,
-        timeRemaining: 300
+        currentCardFlipper: data.currentCardFlipper || 0,
+        cardsFlipped: data.cardsFlipped || 0,
+        timeRemaining: data.timeRemaining || 300
       });
       setIsLoading(false);
     });
@@ -61,11 +66,27 @@ export default function GamePage() {
 
     newSocket.on('card-flip-update', (data: any) => {
       console.log('🃏 Frontend: card-flip-update received:', data);
-      setGameState(prev => prev ? {
-        ...prev,
-        currentCardFlipper: data.currentCardFlipper,
-        cardsFlipped: data.cardsFlipped
-      } : null);
+      console.log('🃏 Frontend: currentCardFlipper=', data.currentCardFlipper, 'cardsFlipped=', data.cardsFlipped);
+      console.log('🃏 Frontend: my playerIndex=', gameState?.playerIndex);
+      setGameState(prev => {
+        const newState = prev ? {
+          ...prev,
+          currentCardFlipper: data.currentCardFlipper,
+          cardsFlipped: data.cardsFlipped
+        } : null;
+        console.log('🃏 Frontend: new state after card-flip-update:', newState);
+        return newState;
+      });
+    });
+
+    newSocket.on('countdown-start', (data: any) => {
+      console.log('⏰ Frontend: countdown-start received:', data);
+      setGameState(prev => prev ? { ...prev, countdownMessage: data.message } : null);
+    });
+
+    newSocket.on('countdown-update', (data: any) => {
+      console.log('⏰ Frontend: countdown-update received:', data);
+      setGameState(prev => prev ? { ...prev, countdown: data.count } : null);
     });
 
     newSocket.on('error', (error: any) => {
@@ -103,6 +124,8 @@ export default function GamePage() {
       newSocket.off('phase-changed');
       newSocket.off('timer-update');
       newSocket.off('card-flip-update');
+      newSocket.off('countdown-start');
+      newSocket.off('countdown-update');
       newSocket.off('error');
     };
   }, [roomCode]);
@@ -277,6 +300,18 @@ export default function GamePage() {
             {!isCardShowing && gameState.playerIndex !== gameState.currentCardFlipper && (gameState.cardsFlipped || 0) < (gameState.playersCount || 0) && (
               <div className="w-full bg-gray-100 text-gray-500 font-medium py-4 px-6 rounded-xl text-lg text-center">
                 ⏳ انتظر دورك
+              </div>
+            )}
+
+            {/* Countdown display */}
+            {gameState.countdownMessage && (
+              <div className="text-center mt-4">
+                <p className="text-lg font-bold text-blue-600 mb-2">{gameState.countdownMessage}</p>
+                {gameState.countdown !== undefined && gameState.countdown >= 0 && (
+                  <div className="text-4xl font-bold text-red-600 animate-pulse">
+                    {gameState.countdown}
+                  </div>
+                )}
               </div>
             )}
           </>
