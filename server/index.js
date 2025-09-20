@@ -259,7 +259,9 @@ io.on('connection', (socket) => {
       io.to(player.socketId).emit('game-started', playerGameData);
     });
     
-    console.log(`Game started in room ${roomCode}`);
+    console.log(`Game started in room ${roomCode} with spy at index ${spyIndex}, word: ${randomWord}`);
+    console.log(`Players: ${playersArray.map(p => `${p.name}(${p.playerIndex})`).join(', ')}`);
+    console.log(`Spy is player: ${playersArray[spyIndex]?.name} (index ${spyIndex})`);
   });
 
   // Handle card flip
@@ -268,12 +270,15 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomCode);
     if (!room || !room.gameStarted) return;
 
+    console.log(`Card flipped in room ${roomCode}, current cardsFlipped: ${room.gameData.cardsFlipped || 0}, total players: ${room.players.size}`);
+
     // Update game state
     room.gameData.cardsFlipped = (room.gameData.cardsFlipped || 0) + 1;
     room.gameData.currentCardFlipper = (room.gameData.currentCardFlipper || 0) + 1;
 
     // Check if all players have flipped
     if (room.gameData.cardsFlipped >= room.players.size) {
+      console.log(`All players have flipped! Moving to questions phase in room ${roomCode}`);
       // All players have flipped, start questions phase
       room.gameData.phase = 'questions';
       room.gameData.timeRemaining = 300; // 5 minutes
