@@ -199,7 +199,7 @@ io.on('connection', (socket) => {
   // Start game
   socket.on('start-game', (data) => {
     const { roomCode, category, playersCount } = data;
-    console.log(`Starting game in room ${roomCode}`);
+    console.log(`🚀 Starting game in room ${roomCode} with category ${category} and ${playersCount} players`);
 
     const room = rooms.get(roomCode);
     if (!room) {
@@ -267,10 +267,14 @@ io.on('connection', (socket) => {
   // Handle card flip
   socket.on('card-flipped', (data) => {
     const { roomCode } = data;
+    console.log(`🃏 Card flipped event received for room ${roomCode}`);
     const room = rooms.get(roomCode);
-    if (!room || !room.gameStarted) return;
+    if (!room || !room.gameStarted) {
+      console.log(`❌ Room ${roomCode} not found or game not started`);
+      return;
+    }
 
-    console.log(`Card flipped in room ${roomCode}, current cardsFlipped: ${room.gameData.cardsFlipped || 0}, total players: ${room.players.size}`);
+    console.log(`🃏 Card flipped in room ${roomCode}, current cardsFlipped: ${room.gameData.cardsFlipped || 0}, total players: ${room.players.size}`);
 
     // Update game state
     room.gameData.cardsFlipped = (room.gameData.cardsFlipped || 0) + 1;
