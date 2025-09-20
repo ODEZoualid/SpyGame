@@ -29,6 +29,8 @@ export default function GamePage() {
     // Socket event listeners
     newSocket.on('game-started', (data: GameState) => {
       console.log('GAME_STARTED data=', data);
+      console.log('GAME_STARTED phase=', data.phase);
+      console.log('GAME_STARTED category=', data.category);
       setGameState(data);
       setIsLoading(false);
     });
@@ -38,7 +40,14 @@ export default function GamePage() {
       alert(`خطأ: ${error.message}`);
     });
 
+    // Add timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      console.log('GAME_LOADING_TIMEOUT - No game-started event received');
+      setIsLoading(false);
+    }, 10000); // 10 second timeout
+
     return () => {
+      clearTimeout(timeout);
       newSocket.off('game-started');
       newSocket.off('error');
     };

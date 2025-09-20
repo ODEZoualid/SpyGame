@@ -215,9 +215,10 @@ io.on('connection', (socket) => {
     room.gameData = {
       phase: 'card-flipping',
       category: category,
-      players: playersCount,
+      playersCount: playersCount,
       spyIndex: Math.floor(Math.random() * playersCount),
-      word: 'كلمة تجريبية'
+      word: 'كلمة تجريبية',
+      startTime: Date.now()
     };
 
     io.to(roomCode).emit('game-started', room.gameData);
