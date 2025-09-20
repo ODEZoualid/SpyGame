@@ -109,6 +109,7 @@ export default function GamePage() {
 
   const flipCard = () => {
     console.log('🃏 Frontend: flipCard called, socket:', !!socket, 'roomCode:', roomCode);
+    console.log('🃏 Frontend: currentCardFlipper:', gameState?.currentCardFlipper, 'playerIndex:', gameState?.playerIndex);
     setIsCardShowing(true);
     
     // Notify server that this player flipped their card
@@ -205,6 +206,9 @@ export default function GamePage() {
               <p className="text-sm text-gray-500">
                 {gameState.cardsFlipped || 0} من {gameState.playersCount} شافوا البطاقة
               </p>
+              <p className="text-xs text-gray-400 mt-2">
+                أنت اللاعب {gameState.playerIndex + 1} من {gameState.playersCount}
+              </p>
               {isCardShowing && (
                 <p className="text-sm text-orange-500 mt-2">
                   اقلب البطاقة و اعطيها للاعب الجاي بعد ثانيتين
@@ -261,13 +265,19 @@ export default function GamePage() {
               </div>
             </div>
 
-            {!isCardShowing && gameState.playerIndex === gameState.currentCardFlipper && (
+            {!isCardShowing && gameState.playerIndex === gameState.currentCardFlipper && (gameState.cardsFlipped || 0) < (gameState.playersCount || 0) && (
               <button
                 onClick={flipCard}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl text-lg transition-colors duration-200"
               >
                 🃏 اقلب البطاقة
               </button>
+            )}
+            
+            {!isCardShowing && gameState.playerIndex !== gameState.currentCardFlipper && (gameState.cardsFlipped || 0) < (gameState.playersCount || 0) && (
+              <div className="w-full bg-gray-100 text-gray-500 font-medium py-4 px-6 rounded-xl text-lg text-center">
+                ⏳ انتظر دورك
+              </div>
             )}
           </>
         )}
