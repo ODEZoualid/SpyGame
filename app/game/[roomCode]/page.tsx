@@ -13,8 +13,9 @@ interface GameState {
   startTime: number;
   playerIndex?: number;
   isSpy?: boolean;
-  currentPlayer?: number;
-  timeLeft?: number;
+  currentCardFlipper?: number;
+  cardsFlipped?: number;
+  timeRemaining?: number;
 }
 
 export default function GamePage() {
@@ -23,9 +24,10 @@ export default function GamePage() {
   const [socket, setSocket] = useState<any>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [cardFlipped, setCardFlipped] = useState(false);
-  const [allPlayersFlipped, setAllPlayersFlipped] = useState(false);
-  const [timer, setTimer] = useState<number | null>(null);
+  const [isCardShowing, setIsCardShowing] = useState(false);
+  const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
+  const [votes, setVotes] = useState<{ [key: number]: number }>({});
+  const [hasVoted, setHasVoted] = useState(false);
 
   const roomCode = params.roomCode as string;
 
@@ -38,7 +40,12 @@ export default function GamePage() {
     // Socket event listeners
     newSocket.on('game-started', (data: GameState) => {
       console.log('GAME_STARTED data=', data);
-      setGameState(data);
+      setGameState({
+        ...data,
+        currentCardFlipper: 0,
+        cardsFlipped: 0,
+        timeRemaining: 300
+      });
       setIsLoading(false);
     });
 
@@ -48,7 +55,7 @@ export default function GamePage() {
     });
 
     newSocket.on('timer-update', (data: any) => {
-      setTimer(data.timeLeft);
+      setGameState(prev => prev ? { ...prev, timeRemaining: data.timeLeft } : null);
     });
 
     newSocket.on('error', (error: any) => {
@@ -67,12 +74,15 @@ export default function GamePage() {
       setGameState({
         phase: 'card-flipping',
         category: 'الأكل',
-        word: 'كلمة تجريبية',
+        word: 'الكسكس',
         spyIndex: 0,
         playersCount: 3,
         startTime: Date.now(),
         playerIndex: 0,
-        isSpy: false
+        isSpy: false,
+        currentCardFlipper: 0,
+        cardsFlipped: 0,
+        timeRemaining: 300
       });
       setIsLoading(false);
     }, 5000);
@@ -87,31 +97,64 @@ export default function GamePage() {
   }, [roomCode]);
 
   const flipCard = () => {
-    setCardFlipped(true);
-    // Simulate all players flipping after 3 seconds
+    setIsCardShowing(true);
+    
+    // Show card for 3 seconds, then move to next player or start questions
     setTimeout(() => {
-      setAllPlayersFlipped(true);
-      // Move to questions phase after 2 seconds
-      setTimeout(() => {
-        setGameState(prev => prev ? { ...prev, phase: 'questions' } : null);
-        startTimer();
-      }, 2000);
+      setIsCardShowing(false);
+      
+      setGameState(prev => {
+        if (!prev) return prev;
+        
+        const nextCardFlipper = (prev.currentCardFlipper || 0) + 1;
+        const newCardsFlipped = (prev.cardsFlipped || 0) + 1;
+        
+        if (nextCardFlipper < prev.playersCount) {
+          // More players need to flip
+          return {
+            ...prev,
+            currentCardFlipper: nextCardFlipper,
+            cardsFlipped: newCardsFlipped
+          };
+        } else {
+          // All players have flipped, start questions phase
+          startTimer();
+          return {
+            ...prev,
+            phase: 'questions',
+            cardsFlipped: newCardsFlipped,
+            currentCardFlipper: 0
+          };
+        }
+      });
     }, 3000);
   };
 
   const startTimer = () => {
     let timeLeft = 300; // 5 minutes
-    setTimer(timeLeft);
+    setGameState(prev => prev ? { ...prev, timeRemaining: timeLeft } : null);
     
     const timerInterval = setInterval(() => {
       timeLeft -= 1;
-      setTimer(timeLeft);
+      setGameState(prev => prev ? { ...prev, timeRemaining: timeLeft } : null);
       
       if (timeLeft <= 0) {
         clearInterval(timerInterval);
         setGameState(prev => prev ? { ...prev, phase: 'voting' } : null);
       }
     }, 1000);
+    
+    setTimer(timerInterval);
+  };
+
+  const voteForPlayer = (playerIndex: number) => {
+    if (hasVoted) return;
+    
+    setVotes(prev => ({
+      ...prev,
+      [playerIndex]: (prev[playerIndex] || 0) + 1
+    }));
+    setHasVoted(true);
   };
 
   const formatTime = (seconds: number) => {
@@ -122,7 +165,7 @@ export default function GamePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600 text-lg">جاري تحميل اللعبة...</p>
@@ -133,7 +176,7 @@ export default function GamePage() {
 
   if (!gameState) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600 mb-4 text-lg">لم يتم العثور على اللعبة</p>
           <button
@@ -148,80 +191,97 @@ export default function GamePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-md mx-auto">
         
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {gameState.phase === 'card-flipping' && '🃏 مرحلة البطاقات'}
-            {gameState.phase === 'questions' && '❓ مرحلة الأسئلة'}
-            {gameState.phase === 'voting' && '🗳️ مرحلة التصويت'}
-            {gameState.phase === 'results' && '🏆 النتائج'}
-          </h1>
-          <p className="text-gray-600 text-lg">الفئة: {gameState.category}</p>
-        </div>
-
         {/* Card Flipping Phase */}
         {gameState.phase === 'card-flipping' && (
-          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
-            <div className="mb-6">
-              <div className="text-6xl mb-4">🎮</div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                {!cardFlipped ? 'حان وقت كشف البطاقات!' : 'انتظر باقي اللاعبين...'}
-              </h2>
-              <p className="text-gray-600 mb-6">
-                {!cardFlipped 
-                  ? 'كل لاعب يقلب بطاقته ليرى دوره في اللعبة'
-                  : 'جميع اللاعبين يكشفون بطاقاتهم...'
-                }
+          <>
+            <div className="text-center mb-8">
+              <h1 className="text-2xl font-bold text-gray-900 mb-4">
+                {isCardShowing ? `دور اللاعب ${(gameState.currentCardFlipper || 0) + 1}` : 'قلب البطاقة'}
+              </h1>
+              <p className="text-gray-600 mb-4">
+                {isCardShowing ? 'شوف بطاقتك و اقلبها للاعب الجاي' : `اللاعب ${(gameState.currentCardFlipper || 0) + 1} يقلب البطاقة`}
               </p>
+              <p className="text-sm text-gray-500">
+                {gameState.cardsFlipped || 0} من {gameState.playersCount} شافوا البطاقة
+              </p>
+              {isCardShowing && (
+                <p className="text-sm text-orange-500 mt-2">
+                  اقلب البطاقة و اعطيها للاعب الجاي بعد ثانيتين
+                </p>
+              )}
             </div>
 
-            {!cardFlipped ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 min-h-[300px] flex items-center justify-center mb-8">
+              <div className="text-center">
+                {isCardShowing ? (
+                  gameState.isSpy ? (
+                    <>
+                      <div className="text-8xl mb-6">🕵️</div>
+                      <h2 className="text-3xl font-bold text-red-600 mb-4">
+                        انتا الجاسوس!
+                      </h2>
+                      <p className="text-gray-600 mb-4">
+                        ما تعرفش الكلمة و لازم تعرفها من الأسئلة
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        لا تخبر أحداً أنك الجاسوس!
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-8xl mb-6">🔍</div>
+                      <h2 className="text-3xl font-bold text-blue-600 mb-4">
+                        {gameState.word}
+                      </h2>
+                      <p className="text-gray-600 mb-4">
+                        هاد هي الكلمة اللي لازم تسألوا عليها
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        الجاسوس ما يعرفش هاد الكلمة!
+                      </p>
+                    </>
+                  )
+                ) : (
+                  <>
+                    <div className="text-8xl mb-6">🃏</div>
+                    <h2 className="text-2xl font-bold text-gray-700 mb-4">
+                      البطاقة
+                    </h2>
+                    <p className="text-gray-600">
+                      اضغط لترى محتوى البطاقة
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {!isCardShowing && (
               <button
                 onClick={flipCard}
-                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 px-8 rounded-2xl text-xl shadow-lg hover:shadow-xl transition-all duration-200"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl text-lg transition-colors duration-200"
               >
                 🃏 اقلب البطاقة
               </button>
-            ) : (
-              <div className="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-6">
-                <div className="text-4xl mb-4">
-                  {gameState.isSpy ? '🕵️' : '📝'}
-                </div>
-                <h3 className="text-xl font-bold text-gray-800 mb-2">
-                  {gameState.isSpy ? 'أنت الجاسوس!' : 'أنت لاعب عادي!'}
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  {gameState.isSpy 
-                    ? 'لا تعرف الكلمة. حاول اكتشافها من خلال الأسئلة.'
-                    : `الكلمة هي: ${gameState.word}`
-                  }
-                </p>
-                {allPlayersFlipped && (
-                  <div className="text-green-600 font-medium">
-                    ✅ جميع اللاعبين انتهوا من كشف البطاقات
-                  </div>
-                )}
-              </div>
             )}
-          </div>
+          </>
         )}
 
         {/* Questions Phase */}
         {gameState.phase === 'questions' && (
           <div className="space-y-6">
             {/* Timer */}
-            <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
               <div className="text-4xl font-mono font-bold text-blue-600 mb-2">
-                {timer ? formatTime(timer) : '5:00'}
+                {gameState.timeRemaining ? formatTime(gameState.timeRemaining) : '5:00'}
               </div>
               <p className="text-gray-600">الوقت المتبقي</p>
             </div>
 
             {/* Game Instructions */}
-            <div className="bg-white rounded-2xl shadow-lg p-8">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
               <div className="text-center">
                 <div className="text-6xl mb-4">❓</div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-4">
@@ -234,16 +294,16 @@ export default function GamePage() {
                   }
                 </p>
                 
-                <div className="grid grid-cols-2 gap-4 mt-6">
+                <div className="grid grid-cols-2 gap-4">
                   <button
                     onClick={() => setGameState(prev => prev ? { ...prev, phase: 'voting' } : null)}
-                    className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-200"
+                    className="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-xl transition-colors duration-200"
                   >
                     🗳️ التصويت الآن
                   </button>
                   <button
                     onClick={() => setGameState(prev => prev ? { ...prev, phase: 'results' } : null)}
-                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-200"
+                    className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl transition-colors duration-200"
                   >
                     🏆 النتائج
                   </button>
@@ -255,26 +315,51 @@ export default function GamePage() {
 
         {/* Voting Phase */}
         {gameState.phase === 'voting' && (
-          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
-            <div className="text-6xl mb-4">🗳️</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              مرحلة التصويت
-            </h2>
-            <p className="text-gray-600 mb-6">
-              صوت لمن تعتقد أنه الجاسوس
-            </p>
-            <button
-              onClick={() => setGameState(prev => prev ? { ...prev, phase: 'results' } : null)}
-              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-200"
-            >
-              🏆 عرض النتائج
-            </button>
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
+              <div className="text-6xl mb-4">🗳️</div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                مرحلة التصويت
+              </h2>
+              <p className="text-gray-600 mb-6">
+                صوت لمن تعتقد أنه الجاسوس
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {Array.from({ length: gameState.playersCount }, (_, i) => (
+                <button
+                  key={i}
+                  onClick={() => voteForPlayer(i)}
+                  disabled={hasVoted}
+                  className={`w-full p-4 rounded-xl border-2 transition-all duration-200 ${
+                    hasVoted 
+                      ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                      : 'bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">اللاعب {i + 1}</span>
+                    {votes[i] > 0 && <span className="text-blue-600">✓</span>}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {hasVoted && (
+              <button
+                onClick={() => setGameState(prev => prev ? { ...prev, phase: 'results' } : null)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors duration-200"
+              >
+                🏆 عرض النتائج
+              </button>
+            )}
           </div>
         )}
 
         {/* Results Phase */}
         {gameState.phase === 'results' && (
-          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
             <div className="text-6xl mb-4">🏆</div>
             <h2 className="text-2xl font-bold text-gray-800 mb-4">
               نتائج اللعبة
@@ -290,13 +375,13 @@ export default function GamePage() {
             <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={() => router.push('/')}
-                className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-200"
+                className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-xl transition-colors duration-200"
               >
                 🏠 الرئيسية
               </button>
               <button
                 onClick={() => window.location.reload()}
-                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-200"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors duration-200"
               >
                 🔄 لعب تاني
               </button>

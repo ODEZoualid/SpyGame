@@ -220,12 +220,26 @@ io.on('connection', (socket) => {
 
     room.gameStarted = true;
     const spyIndex = Math.floor(Math.random() * playersCount);
+    
+    // Get real word from category
+    const categories = {
+      '1': { name: 'الأكل', words: ['الكسكس', 'الطاجين', 'الحريرة', 'البيتزا', 'البرغر', 'السلطة', 'المعكرونة', 'السمك', 'اللحم'] },
+      '2': { name: 'الحيوانات', words: ['الفيل', 'الدلفين', 'البطريق', 'الأسد', 'النمر', 'الزرافة', 'القرود', 'الطيور', 'الأسماك'] },
+      '3': { name: 'المدن', words: ['الدار البيضاء', 'الرباط', 'فاس', 'مراكش', 'أكادير', 'طنجة', 'مكناس', 'وجدة', 'تطوان'] },
+      '4': { name: 'الرياضة', words: ['كرة القدم', 'كرة السلة', 'التنس', 'السباحة', 'الجري', 'ركوب الدراجة', 'الملاكمة', 'الكرة الطائرة', 'الجمباز'] },
+      '5': { name: 'الموسيقى', words: ['الغيتار', 'البيانو', 'الطبلة', 'الميكروفون', 'الحفلة', 'الأغنية', 'الرقص', 'الفرقة', 'الحفل'] },
+      '6': { name: 'التكنولوجيا', words: ['الهاتف', 'الكمبيوتر', 'الإنترنت', 'التطبيق', 'البرمجة', 'الذكاء الاصطناعي', 'الروبوت', 'الطابعة', 'الكاميرا'] }
+    };
+    
+    const selectedCategoryData = categories[category] || categories['1'];
+    const randomWord = selectedCategoryData.words[Math.floor(Math.random() * selectedCategoryData.words.length)];
+    
     room.gameData = {
       phase: 'card-flipping',
-      category: category,
+      category: selectedCategoryData.name,
       playersCount: playersCount,
       spyIndex: spyIndex,
-      word: 'كلمة تجريبية',
+      word: randomWord,
       startTime: Date.now()
     };
     
