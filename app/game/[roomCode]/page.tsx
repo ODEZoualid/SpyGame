@@ -99,7 +99,7 @@ export default function GamePage() {
     console.log('REQUESTING_GAME_STATE roomCode=', roomCode);
     newSocket.emit('get-room-state', { roomCode });
 
-    // Add timeout to prevent infinite loading
+    // Add timeout to prevent infinite loading (increased to 10 seconds)
     const timeout = setTimeout(() => {
       console.log('GAME_LOADING_TIMEOUT - Creating fallback game state');
       setGameState({
@@ -116,7 +116,7 @@ export default function GamePage() {
         timeRemaining: 300
       });
       setIsLoading(false);
-    }, 5000);
+    }, 10000);
 
     return () => {
       clearTimeout(timeout);
