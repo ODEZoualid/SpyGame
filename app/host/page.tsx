@@ -33,6 +33,20 @@ export default function HostPage() {
     setSocket(newSocket);
 
     // Socket event listeners
+    newSocket.on('connect', () => {
+      console.log('SOCKET_CONNECTED in host page');
+    });
+
+    newSocket.on('disconnect', (reason) => {
+      console.log('SOCKET_DISCONNECTED in host page:', reason);
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('SOCKET_CONNECT_ERROR in host page:', error);
+      alert(`خطأ في الاتصال: ${error.message}`);
+      setIsCreating(false);
+    });
+
     newSocket.on('room-created', (data: any) => {
       console.log('ROOM_CREATED data=', data);
       setRoomCode(data.roomCode);
@@ -56,6 +70,9 @@ export default function HostPage() {
     });
 
     return () => {
+      newSocket.off('connect');
+      newSocket.off('disconnect');
+      newSocket.off('connect_error');
       newSocket.off('room-created');
       newSocket.off('players-updated');
       newSocket.off('game-started');

@@ -10,7 +10,7 @@ export const getSocket = (): Socket => {
   }
 
   if (!socket) {
-    const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000';
+    const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://odez-production.up.railway.app';
     console.log('SOCKET_INIT serverUrl=', serverUrl, 'timestamp=', new Date().toISOString());
     
     socket = io(serverUrl, {
