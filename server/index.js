@@ -13,7 +13,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 // CORS configuration
 const corsOptions = {
   origin: NODE_ENV === 'production'
-    ? ['https://spy-game-darija-ij84kt327-vievimie-3261s-projects.vercel.app', 'https://spy-game-darija.vercel.app']
+    ? ['https://spy-game-darija-9ce2s58tg-vievimie-3261s-projects.vercel.app', 'https://spy-game-darija.vercel.app', 'https://spy-game-darija-ij84kt327-vievimie-3261s-projects.vercel.app']
     : ['http://localhost:3000', 'http://localhost:3001'],
   methods: ['GET', 'POST'],
   credentials: true
@@ -24,10 +24,14 @@ app.use(cors(corsOptions));
 // Socket.IO configuration
 const io = socketIo(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
+    origin: NODE_ENV === 'production'
+      ? ['https://spy-game-darija-9ce2s58tg-vievimie-3261s-projects.vercel.app', 'https://spy-game-darija.vercel.app', 'https://spy-game-darija-ij84kt327-vievimie-3261s-projects.vercel.app']
+      : ['http://localhost:3000', 'http://localhost:3001'],
+    methods: ["GET", "POST"],
+    credentials: true
   },
-  transports: ['websocket', 'polling']
+  transports: ['websocket', 'polling'],
+  allowEIO3: true
 });
 
 // In-memory storage

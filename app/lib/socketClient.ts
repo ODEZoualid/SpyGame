@@ -10,13 +10,16 @@ export const getSocket = (): Socket => {
   }
 
   if (!socket) {
-    const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://odez-production.up.railway.app';
+    const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://backend-production-357c.up.railway.app';
     console.log('SOCKET_INIT serverUrl=', serverUrl, 'timestamp=', new Date().toISOString());
     
     socket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       timeout: 20000,
-      forceNew: true
+      forceNew: true,
+      withCredentials: true,
+      upgrade: true,
+      rememberUpgrade: true
     });
     
     socket.on('connect', () => {
