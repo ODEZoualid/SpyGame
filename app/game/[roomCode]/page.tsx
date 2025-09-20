@@ -60,6 +60,7 @@ export default function GamePage() {
     });
 
     newSocket.on('card-flip-update', (data: any) => {
+      console.log('🃏 Frontend: card-flip-update received:', data);
       setGameState(prev => prev ? {
         ...prev,
         currentCardFlipper: data.currentCardFlipper,
@@ -207,6 +208,11 @@ export default function GamePage() {
               {isCardShowing && (
                 <p className="text-sm text-orange-500 mt-2">
                   اقلب البطاقة و اعطيها للاعب الجاي بعد ثانيتين
+                </p>
+              )}
+              {(gameState.cardsFlipped || 0) < (gameState.playersCount || 0) && (
+                <p className="text-sm text-blue-500 mt-2">
+                  انتظر حتى يقلب جميع اللاعبين بطاقاتهم
                 </p>
               )}
             </div>

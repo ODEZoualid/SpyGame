@@ -281,9 +281,16 @@ io.on('connection', (socket) => {
     room.gameData.cardsFlipped = (room.gameData.cardsFlipped || 0) + 1;
     room.gameData.currentCardFlipper = (room.gameData.currentCardFlipper || 0) + 1;
 
+    // Always broadcast the updated card flip state to all players
+    io.to(roomCode).emit('card-flip-update', {
+      currentCardFlipper: room.gameData.currentCardFlipper,
+      cardsFlipped: room.gameData.cardsFlipped,
+      totalPlayers: room.players.size
+    });
+
     // Check if all players have flipped
     if (room.gameData.cardsFlipped >= room.players.size) {
-      console.log(`All players have flipped! Moving to questions phase in room ${roomCode}`);
+      console.log(`🎉 All players have flipped! Moving to questions phase in room ${roomCode}`);
       // All players have flipped, start questions phase
       room.gameData.phase = 'questions';
       room.gameData.timeRemaining = 300; // 5 minutes
@@ -305,15 +312,8 @@ io.on('connection', (socket) => {
       // Store timer interval in room for cleanup
       room.timerInterval = timerInterval;
       
-      // Broadcast phase change
+      // Broadcast phase change to ALL players
       io.to(roomCode).emit('phase-changed', { phase: 'questions' });
-    } else {
-      // More players need to flip, update current card flipper
-      io.to(roomCode).emit('card-flip-update', {
-        currentCardFlipper: room.gameData.currentCardFlipper,
-        cardsFlipped: room.gameData.cardsFlipped,
-        totalPlayers: room.players.size
-      });
     }
   });
 
