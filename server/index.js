@@ -219,16 +219,29 @@ io.on('connection', (socket) => {
     }
 
     room.gameStarted = true;
+    const spyIndex = Math.floor(Math.random() * playersCount);
     room.gameData = {
       phase: 'card-flipping',
       category: category,
       playersCount: playersCount,
-      spyIndex: Math.floor(Math.random() * playersCount),
+      spyIndex: spyIndex,
       word: 'كلمة تجريبية',
       startTime: Date.now()
     };
-
-    io.to(roomCode).emit('game-started', room.gameData);
+    
+    // Assign player indices and send game-started to all players
+    const playersArray = Array.from(room.players.values());
+    playersArray.forEach((player, index) => {
+      player.playerIndex = index;
+      
+      const playerGameData = {
+        ...room.gameData,
+        playerIndex: player.playerIndex,
+        isSpy: player.playerIndex === spyIndex
+      };
+      io.to(player.socketId).emit('game-started', playerGameData);
+    });
+    
     console.log(`Game started in room ${roomCode}`);
   });
 });

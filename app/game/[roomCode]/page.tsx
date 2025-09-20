@@ -11,6 +11,8 @@ interface GameState {
   spyIndex: number;
   playersCount: number;
   startTime: number;
+  playerIndex?: number; // Player's position in the game
+  isSpy?: boolean; // Whether this player is the spy
 }
 
 export default function GamePage() {
@@ -58,7 +60,9 @@ export default function GamePage() {
         word: 'كلمة تجريبية',
         spyIndex: 0,
         playersCount: 3,
-        startTime: Date.now()
+        startTime: Date.now(),
+        playerIndex: 0,
+        isSpy: false
       });
       setIsLoading(false);
     }, 5000); // Reduced to 5 seconds
@@ -114,12 +118,40 @@ export default function GamePage() {
             <p className="text-gray-600 mb-4">
               تم بدء اللعبة بنجاح. يمكنك الآن اللعب مع الأصدقاء!
             </p>
-            <p className="text-sm text-gray-500">
-              الجاسوس: اللاعب {gameState.spyIndex + 1}
-            </p>
-            <p className="text-sm text-gray-500">
-              الكلمة: {gameState.word}
-            </p>
+            
+            {/* Card Flipping Phase */}
+            {gameState.phase === 'card-flipping' && (
+              <div className="mt-6">
+                <button
+                  onClick={() => {
+                    // Show role based on isSpy property
+                    if (gameState.isSpy) {
+                      alert('أنت الجاسوس! 🕵️\n\nلا تعرف الكلمة. حاول اكتشافها من خلال الأسئلة.');
+                    } else {
+                      alert(`الكلمة هي: ${gameState.word}\n\nحاول اكتشاف من هو الجاسوس!`);
+                    }
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg mb-4"
+                >
+                  اقلب البطاقة
+                </button>
+                <p className="text-sm text-gray-500">
+                  اقلب البطاقة لترى دورك في اللعبة
+                </p>
+              </div>
+            )}
+            
+            {/* Questions Phase */}
+            {gameState.phase === 'questions' && (
+              <div className="mt-6">
+                <p className="text-lg font-semibold text-gray-700 mb-4">
+                  ابدأ بطرح الأسئلة!
+                </p>
+                <p className="text-sm text-gray-500">
+                  الفئة: {gameState.category}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
