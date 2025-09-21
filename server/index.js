@@ -215,7 +215,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Start game
+  // Start game - Server Authoritative
   socket.on('start-game', (data) => {
     const { roomCode, category, playersCount } = data;
     console.log(`🚀 Starting game in room ${roomCode} with category ${category} and ${playersCount} players`);
@@ -237,84 +237,149 @@ io.on('connection', (socket) => {
       return;
     }
 
-    room.gameStarted = true;
+    // Prevent concurrent starts
+    if (room.lock) {
+      socket.emit('error', { message: 'Game is already starting' });
+      return;
+    }
+    room.lock = true;
+
+    // Server-authoritative role and word assignment
     const spyIndex = Math.floor(Math.random() * playersCount);
     
     // Get real word from category
     const categories = {
-      '1': { name: 'الأكل', words: ['الكسكس', 'الطاجين', 'الحريرة', 'البيتزا', 'البرغر', 'السلطة', 'المعكرونة', 'السمك', 'اللحم'] },
-      '2': { name: 'الحيوانات', words: ['الفيل', 'الدلفين', 'البطريق', 'الأسد', 'النمر', 'الزرافة', 'القرود', 'الطيور', 'الأسماك'] },
-      '3': { name: 'المدن', words: ['الدار البيضاء', 'الرباط', 'فاس', 'مراكش', 'أكادير', 'طنجة', 'مكناس', 'وجدة', 'تطوان'] },
-      '4': { name: 'الرياضة', words: ['كرة القدم', 'كرة السلة', 'التنس', 'السباحة', 'الجري', 'ركوب الدراجة', 'الملاكمة', 'الكرة الطائرة', 'الجمباز'] },
-      '5': { name: 'الموسيقى', words: ['الغيتار', 'البيانو', 'الطبلة', 'الميكروفون', 'الحفلة', 'الأغنية', 'الرقص', 'الفرقة', 'الحفل'] },
-      '6': { name: 'التكنولوجيا', words: ['الهاتف', 'الكمبيوتر', 'الإنترنت', 'التطبيق', 'البرمجة', 'الذكاء الاصطناعي', 'الروبوت', 'الطابعة', 'الكاميرا'] }
+      '1': { name: 'الأكل', words: ['الكسكس', 'الطاجين', 'الحريرة', 'البيتزا', 'البرغر', 'السلطة', 'الملوخية', 'الكباب', 'الفتة', 'المحشي', 'الرز', 'اللحم'] },
+      '2': { name: 'الحيوانات', words: ['الفيل', 'الدلفين', 'البطريق', 'الأسد', 'النمر', 'الزرافة', 'الغزال', 'القرود', 'الطاووس', 'الفراشة', 'السلحفاة', 'الكنغر'] },
+      '3': { name: 'المدن', words: ['الدار البيضاء', 'الرباط', 'فاس', 'مراكش', 'أكادير', 'طنجة', 'مكناس', 'وجدة', 'تطوان', 'الخميسات', 'بني ملال', 'تازة'] },
+      '4': { name: 'الألوان', words: ['الأحمر', 'الأزرق', 'الأخضر', 'الأصفر', 'الوردي', 'البرتقالي', 'البنفسجي', 'الأسود', 'الأبيض', 'الرمادي', 'الذهبي', 'الفضي'] },
+      '5': { name: 'البلدان', words: ['المغرب', 'مصر', 'فرنسا', 'إسبانيا', 'أمريكا', 'إنجلترا', 'ألمانيا', 'إيطاليا', 'اليابان', 'الصين', 'البرازيل', 'كندا'] },
+      '6': { name: 'الرياضة', words: ['كرة القدم', 'كرة السلة', 'التنس', 'السباحة', 'الجري', 'ركوب الدراجة', 'الملاكمة', 'الكاراتيه', 'الجمباز', 'كرة اليد', 'البيسبول', 'الهوكي'] },
+      '7': { name: 'المهن', words: ['الطبيب', 'المعلم', 'المهندس', 'الشرطي', 'النجار', 'الخباز', 'المحامي', 'المحاسب', 'الممرض', 'الطيار', 'الطباخ', 'المحاسب'] },
+      '8': { name: 'الأدوات', words: ['المطرقة', 'المفك', 'المقص', 'المفتاح', 'الكماشة', 'المنشار', 'البراغي', 'المسامير', 'الخيط', 'الإبرة', 'الغراء', 'الورق'] },
+      '9': { name: 'المواصلات', words: ['السيارة', 'الطائرة', 'القطار', 'الحافلة', 'الدراجة', 'الدراجة النارية', 'الطائرة الشراعية', 'الغواصة', 'القطار السريع', 'الترام', 'المترو', 'الطائرة الورقية'] },
+      '10': { name: 'الفواكه', words: ['التفاح', 'الموز', 'البرتقال', 'العنب', 'الفراولة', 'الأناناس', 'المانجو', 'الخوخ', 'الكمثرى', 'الكرز', 'الليمون', 'الرمان'] },
+      '11': { name: 'الخضروات', words: ['الطماطم', 'الخيار', 'الجزر', 'البطاطس', 'البصل', 'الثوم', 'الملفوف', 'الخس', 'السبانخ', 'الفلفل', 'القرنبيط', 'الباذنجان'] },
+      '12': { name: 'الملابس', words: ['القميص', 'البنطلون', 'الفستان', 'الحذاء', 'القبعة', 'القفازات', 'الجاكيت', 'السترة', 'السراويل', 'البلوزة', 'الكنزة', 'الحزام'] }
     };
     
     const selectedCategoryData = categories[category] || categories['1'];
     const randomWord = selectedCategoryData.words[Math.floor(Math.random() * selectedCategoryData.words.length)];
     
+    // Initialize game state
     room.gameData = {
       phase: 'card-flipping',
       category: selectedCategoryData.name,
       playersCount: playersCount,
       spyIndex: spyIndex,
       word: randomWord,
-      startTime: Date.now()
+      startTime: Date.now(),
+      turnIndex: 0,
+      cardsFlipped: 0,
+      votes: [],
+      timer: { endsAt: null },
+      lock: false
     };
     
-    // Assign player indices and send game-started to all players
+    // Assign player indices and roles
     const playersArray = Array.from(room.players.values());
     playersArray.forEach((player, index) => {
       player.playerIndex = index;
-      
-      const playerGameData = {
-        ...room.gameData,
+      player.role = index === spyIndex ? 'spy' : 'player';
+      player.word = index === spyIndex ? null : randomWord;
+      player.hasFlipped = false;
+    });
+    
+    // Send individualized role assignment to each player
+    playersArray.forEach((player) => {
+      io.to(player.socketId).emit('role-assigned', {
+        role: player.role,
+        word: player.word,
         playerIndex: player.playerIndex,
-        isSpy: player.playerIndex === spyIndex,
-        currentCardFlipper: 0,
-        cardsFlipped: 0,
-        timeRemaining: 300
-      };
-      io.to(player.socketId).emit('game-started', playerGameData);
+        isSpy: player.role === 'spy'
+      });
+    });
+    
+    // Broadcast game started to all players
+    io.to(roomCode).emit('game-started', {
+      phase: 'card-flipping',
+      category: selectedCategoryData.name,
+      playersCount: playersCount,
+      turnIndex: 0,
+      cardsFlipped: 0
     });
     
     console.log(`🎮 Game started in room ${roomCode} with spy at index ${spyIndex}, word: ${randomWord}`);
-    console.log(`👥 Players: ${playersArray.map(p => `${p.name}(${p.playerIndex})`).join(', ')}`);
+    console.log(`👥 Players: ${playersArray.map(p => `${p.name}(${p.playerIndex}) - ${p.role}`).join(', ')}`);
     console.log(`🕵️ Spy is player: ${playersArray[spyIndex]?.name} (index ${spyIndex})`);
-    console.log(`🔧 Backend version: 2.0 - Fixed spy assignment and real words`);
+    console.log(`🔧 Backend version: 3.0 - Server Authoritative`);
   });
 
-  // Handle card flip
+  // Handle card flip - Server Enforced Turn Order
   socket.on('card-flipped', (data) => {
     const { roomCode } = data;
     console.log(`🃏 Card flipped event received for room ${roomCode}`);
+    
     const room = rooms.get(roomCode);
     if (!room || !room.gameStarted) {
       console.log(`❌ Room ${roomCode} not found or game not started`);
       return;
     }
 
-    console.log(`🃏 Card flipped in room ${roomCode}, current cardsFlipped: ${room.gameData.cardsFlipped || 0}, total players: ${room.players.size}`);
+    // Find the player who sent this event
+    const player = Array.from(room.players.values()).find(p => p.socketId === socket.id);
+    if (!player) {
+      console.log(`❌ Player not found in room ${roomCode}`);
+      return;
+    }
 
-    // Update game state
-    room.gameData.cardsFlipped = (room.gameData.cardsFlipped || 0) + 1;
-    room.gameData.currentCardFlipper = (room.gameData.currentCardFlipper || 0) + 1;
+    // Validate it's their turn
+    if (room.gameData.phase !== 'card-flipping') {
+      console.log(`❌ Not in card-flipping phase`);
+      return;
+    }
 
-    // Always broadcast the updated card flip state to all players
-    io.to(roomCode).emit('card-flip-update', {
-      currentCardFlipper: room.gameData.currentCardFlipper,
-      cardsFlipped: room.gameData.cardsFlipped,
-      totalPlayers: room.players.size
+    if (player.playerIndex !== room.gameData.turnIndex) {
+      console.log(`❌ Not player ${player.playerIndex}'s turn, current turn: ${room.gameData.turnIndex}`);
+      return;
+    }
+
+    if (player.hasFlipped) {
+      console.log(`❌ Player ${player.playerIndex} already flipped`);
+      return;
+    }
+
+    // Mark player as flipped
+    player.hasFlipped = true;
+    room.gameData.cardsFlipped += 1;
+
+    console.log(`🃏 Player ${player.playerIndex} (${player.name}) flipped card in room ${roomCode}`);
+
+    // Send reveal to this player only
+    io.to(socket.id).emit('reveal-card', {
+      role: player.role,
+      word: player.word,
+      isSpy: player.role === 'spy'
+    });
+
+    // Notify others that this player flipped
+    io.to(roomCode).emit('player-flipped', {
+      playerIndex: player.playerIndex,
+      playerName: player.name
     });
 
     // Check if all players have flipped
     if (room.gameData.cardsFlipped >= room.players.size) {
       console.log(`🎉 All players have flipped! Starting countdown to questions phase in room ${roomCode}`);
       
+      // Start QA phase after 3 seconds
+      setTimeout(() => {
+        startQAPhase(room);
+      }, 3000);
+      
       // Send countdown to all players
       io.to(roomCode).emit('countdown-start', { message: 'مرحلة الأسئلة تبدأ خلال' });
       
-      // 3-second countdown before questions phase
       let countdown = 3;
       const countdownInterval = setInterval(() => {
         io.to(roomCode).emit('countdown-update', { count: countdown });
@@ -322,51 +387,129 @@ io.on('connection', (socket) => {
         
         if (countdown < 0) {
           clearInterval(countdownInterval);
-          
-          // Start questions phase
-          room.gameData.phase = 'questions';
-          room.gameData.timeRemaining = 300; // 5 minutes
-          
-          // Start timer
-          const timerInterval = setInterval(() => {
-            room.gameData.timeRemaining -= 1;
-            
-            // Broadcast timer update to all players
-            io.to(roomCode).emit('timer-update', { timeLeft: room.gameData.timeRemaining });
-            
-            if (room.gameData.timeRemaining <= 0) {
-              clearInterval(timerInterval);
-              room.gameData.phase = 'voting';
-              io.to(roomCode).emit('phase-changed', { phase: 'voting' });
-            }
-          }, 1000);
-          
-          // Store timer interval in room for cleanup
-          room.timerInterval = timerInterval;
-          
-          // Broadcast phase change to ALL players
-          io.to(roomCode).emit('phase-changed', { phase: 'questions' });
         }
       }, 1000);
+    } else {
+      // Move to next player
+      room.gameData.turnIndex += 1;
+      io.to(roomCode).emit('turn-changed', { 
+        turnIndex: room.gameData.turnIndex,
+        currentPlayer: room.gameData.turnIndex
+      });
     }
   });
 
-  // Handle manual phase change (skip to voting)
-  socket.on('change-phase', (data) => {
-    const { roomCode, phase } = data;
+  // Start QA Phase with server-anchored timer
+  function startQAPhase(room) {
+    const QA_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+    room.gameData.phase = 'questions';
+    room.gameData.timer.endsAt = Date.now() + QA_DURATION_MS;
+    
+    console.log(`⏰ Starting QA phase in room ${room.id}, ends at: ${new Date(room.gameData.timer.endsAt).toISOString()}`);
+    
+    io.to(room.id).emit('phase-changed', { 
+      phase: 'questions', 
+      endsAt: room.gameData.timer.endsAt 
+    });
+  }
+
+  // Handle host skip to voting
+  socket.on('host-skip', (data) => {
+    const { roomCode } = data;
     const room = rooms.get(roomCode);
     if (!room || !room.gameStarted) return;
 
-    room.gameData.phase = phase;
-    
-    // Clear timer if switching to voting
-    if (phase === 'voting' && room.timerInterval) {
-      clearInterval(room.timerInterval);
-      room.timerInterval = null;
+    // Validate only host can skip
+    const player = Array.from(room.players.values()).find(p => p.socketId === socket.id);
+    if (!player || player.socketId !== room.hostId) {
+      socket.emit('error', { message: 'Only host can skip timer' });
+      return;
     }
+
+    console.log(`⏭️ Host skipped timer in room ${roomCode}`);
     
-    io.to(roomCode).emit('phase-changed', { phase });
+    room.gameData.phase = 'voting';
+    room.gameData.timer.endsAt = null;
+    
+    io.to(roomCode).emit('phase-changed', { phase: 'voting' });
   });
+
+  // Handle voting
+  socket.on('cast-vote', (data) => {
+    const { roomCode, votedIndex } = data;
+    const room = rooms.get(roomCode);
+    if (!room || !room.gameStarted) return;
+
+    if (room.gameData.phase !== 'voting') {
+      socket.emit('error', { message: 'Not in voting phase' });
+      return;
+    }
+
+    // Find the voter
+    const voter = Array.from(room.players.values()).find(p => p.socketId === socket.id);
+    if (!voter) {
+      socket.emit('error', { message: 'Player not found' });
+      return;
+    }
+
+    // Check if already voted
+    const existingVote = room.gameData.votes.find(v => v.voter === voter.playerIndex);
+    if (existingVote) {
+      socket.emit('error', { message: 'You already voted' });
+      return;
+    }
+
+    // Add vote
+    room.gameData.votes.push({
+      voter: voter.playerIndex,
+      voted: votedIndex,
+      voterName: voter.name
+    });
+
+    console.log(`🗳️ Player ${voter.playerIndex} (${voter.name}) voted for player ${votedIndex} in room ${roomCode}`);
+
+    // Broadcast vote update
+    io.to(roomCode).emit('vote-updated', {
+      votesCount: room.gameData.votes.length,
+      totalPlayers: room.players.size
+    });
+
+    // Check if all players voted
+    if (room.gameData.votes.length >= room.players.size) {
+      console.log(`🎯 All votes collected in room ${roomCode}, computing results`);
+      computeAndEmitResults(room);
+    }
+  });
+
+  // Compute and emit voting results
+  function computeAndEmitResults(room) {
+    const voteCounts = {};
+    room.gameData.votes.forEach(vote => {
+      voteCounts[vote.voted] = (voteCounts[vote.voted] || 0) + 1;
+    });
+
+    // Find most voted player
+    const mostVotedPlayer = Object.entries(voteCounts).reduce((a, b) => 
+      voteCounts[a[0]] > voteCounts[b[0]] ? a : b, ['0', 0]
+    );
+
+    const mostVotedPlayerIndex = parseInt(mostVotedPlayer[0]);
+    const spyWon = mostVotedPlayerIndex !== room.gameData.spyIndex;
+
+    const results = {
+      spyIndex: room.gameData.spyIndex,
+      word: room.gameData.word,
+      mostVotedPlayer: mostVotedPlayerIndex,
+      voteCounts: voteCounts,
+      spyWon: spyWon,
+      votes: room.gameData.votes
+    };
+
+    console.log(`🏆 Results for room ${room.id}: Spy was player ${room.gameData.spyIndex}, most voted: ${mostVotedPlayerIndex}, spy won: ${spyWon}`);
+
+    room.gameData.phase = 'results';
+    io.to(room.id).emit('voting-results', results);
+  }
 });
 
 server.listen(PORT, () => {
