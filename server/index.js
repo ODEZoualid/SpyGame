@@ -113,11 +113,11 @@ io.on('connection', (socket) => {
 
   // Create room
   socket.on('create-room', (data) => {
-    const { playerName } = data;
+    const { playerName, category, playersCount } = data;
     const roomCode = generateRoomCode();
     const playerId = socket.id;
 
-    console.log(`Creating room ${roomCode} for ${playerName}`);
+    console.log(`Creating room ${roomCode} for ${playerName} with category ${category} and ${playersCount} players`);
 
     const newRoom = {
       hostId: playerId,
@@ -128,7 +128,9 @@ io.on('connection', (socket) => {
         socketId: socket.id 
       }]]),
       createdAt: Date.now(),
-      gameStarted: false
+      gameStarted: false,
+      selectedCategory: category,
+      playersCount: playersCount
     };
     
     rooms.set(roomCode, newRoom);
@@ -180,6 +182,13 @@ io.on('connection', (socket) => {
       if (player) {
         socket.emit('join-success', { playerId: player.id, isHost: player.isHost });
         broadcastPlayers(roomCode);
+        
+        // Send room information including category and player count
+        socket.emit('room-info', {
+          selectedCategory: room.selectedCategory || '1',
+          playersCount: room.playersCount || 3,
+          isHost: player.isHost
+        });
         
         // If game has started, send player-specific game data
         if (room.gameStarted && room.gameData) {
